@@ -85,6 +85,8 @@ collectLight();
               <button class="command" type="button" data-command="collectLight">collectLight<span>()</span><b>拾取光種</b></button>
               <button class="command" type="button" data-command="openGate">openGate<span>()</span><b>啟動導航門</b></button>
               <button id="repeat-command" class="command" type="button" data-command="repeat" hidden>repeat<span>(2, moveForward)</span><b>重複行動</b></button>
+              <button id="light-condition" class="command condition-command" type="button" data-command="ifLight" hidden>if (lightIsPresent())<span>collectLight();</span><b>有光時拾取</b></button>
+              <button id="wall-condition" class="command condition-command" type="button" data-command="ifBlocked" hidden>if (pathAheadIsBlocked())<span>turnLeft();</span><b>遇岩壁左轉</b></button>
             </div>
           </div>
           <div class="editor-actions">

@@ -28,6 +28,19 @@
       hint: '<code>repeat(2, moveForward);</code> 會把 <code>moveForward</code> 重複執行兩次。括號裡放次數和行動；小芽每走一步，地圖都會回應。',
       instruction: '試著用 repeat 把重複的移動行動縮成一行。',
     },
+    {
+      name: '感應與選擇',
+      title: '不必每次都照做。<br /><em>先看看發生什麼事。</em>',
+      lead: '小芽裝上光種和岩壁感測器。用 if 檢查眼前的狀況，只有條件成立時才執行行動。',
+      area: '沉睡星球 · 訊號岔路',
+      start: { x: 0, y: 4, direction: 1 },
+      seeds: [{ x: 2, y: 4 }, { x: 2, y: 2 }],
+      gate: { x: 6, y: 2 },
+      walls: new Set(['3,4', '4,4', '3,3', '4,1', '5,1', '1,1', '1,2', '5,4', '5,5']),
+      starter: '// 起點沒有光種：這行條件不成立時會被略過\nif (lightIsPresent()) collectLight();\nmoveForward();\nmoveForward();\nif (lightIsPresent()) collectLight();\n\n// 偵測到前方岩壁時，才需要左轉\nmoveForward();\nmoveForward();\nif (lightIsPresent()) collectLight();\nturnRight();\nrepeat(4, moveForward);\nopenGate();',
+      hint: '<code>if (lightIsPresent()) collectLight();</code> 會先檢查小芽所在格有沒有光種；沒有時略過拾取，有時才執行。前方有岩壁時也可以用感測器決定要不要轉彎。',
+      instruction: '先檢查條件，再決定要不要執行後面的行動。',
+    },
   ];
   const level = () => LEVELS[levelIndex];
   const DIRECTIONS = [
@@ -43,6 +56,10 @@
     ['turnRight', turnRight],
     ['collectLight', collectLight],
     ['openGate', openGate],
+  ]);
+  const CONDITIONS = new Map([
+    ['lightIsPresent', lightIsPresent],
+    ['pathAheadIsBlocked', pathAheadIsBlocked],
   ]);
 
   const world = document.querySelector('#world');
@@ -65,6 +82,8 @@
   const worldTitle = document.querySelector('#world-title');
   const hintCopy = document.querySelector('#hint-copy');
   const repeatCommand = document.querySelector('#repeat-command');
+  const lightCondition = document.querySelector('#light-condition');
+  const wallCondition = document.querySelector('#wall-condition');
   const runLabel = runButton.innerHTML;
 
   let levelIndex = 0;
@@ -216,10 +235,22 @@
     gateOpen = true;
     drawWorld();
     winCard.hidden = false;
-    nextMissionButton.hidden = levelIndex !== 0;
+    nextMissionButton.hidden = levelIndex >= LEVELS.length - 1;
     setStatus('導航門亮起來了！你幫小芽接通返航訊號。');
     showToast('訊號已恢復！');
     return { ok: true, won: true };
+  }
+
+  function lightIsPresent() {
+    const seedIndex = level().seeds.findIndex((seed) => seed.x === rover.x && seed.y === rover.y);
+    return seedIndex !== -1 && !collected.has(seedIndex);
+  }
+
+  function pathAheadIsBlocked() {
+    const vector = DIRECTIONS[rover.direction];
+    const x = rover.x + vector.x;
+    const y = rover.y + vector.y;
+    return !tileAt(x, y) || level().walls.has(`${x},${y}`);
   }
 
   function parseProgram() {
@@ -228,6 +259,17 @@
     for (let index = 0; index < lines.length; index += 1) {
       const source = lines[index].trim();
       if (!source || source.startsWith('//')) continue;
+      const conditional = source.match(/^if\s*\(\s*([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\)\s*([A-Za-z_$][\w$]*)\s*\(\s*\)\s*;?$/);
+      if (conditional) {
+        if (levelIndex < 2) throw new Error(`第 ${index + 1} 行：小芽還沒學會 if 判斷。先完成感應與選擇任務，再試這種寫法。`);
+        const condition = CONDITIONS.get(conditional[1]);
+        const action = COMMANDS.get(conditional[2]);
+        if (!condition) throw new Error(`第 ${index + 1} 行：還沒有「${conditional[1]}」這個感測器。`);
+        if (!action) throw new Error(`第 ${index + 1} 行：if 後面請放一個已解鎖的行動。`);
+        actions.push({ action, condition, name: `if (${conditional[1]}()) ${conditional[2]}()`, line: index + 1 });
+        if (actions.length > 50) throw new Error('這次行動太長了，先試試 50 步以內。');
+        continue;
+      }
       const repeat = source.match(/^repeat\s*\(\s*(\d+)\s*,\s*([A-Za-z_$][\w$]*)\s*\)\s*;?$/);
       if (repeat) {
         if (levelIndex === 0) throw new Error(`第 ${index + 1} 行：小芽還沒學會 repeat。先完成初次接觸任務，之後再試這種簡寫。`);
@@ -297,7 +339,12 @@
     const instruction = program[nextInstruction];
     nextInstruction += 1;
     help.classList.remove('error-text');
-    help.textContent = `第 ${instruction.line} 行 · ${instruction.name}()`;
+    const actionName = instruction.name.startsWith('if (') ? instruction.name : `${instruction.name}()`;
+    help.textContent = `第 ${instruction.line} 行 · ${actionName}`;
+    if (instruction.condition && !instruction.condition()) {
+      setStatus(`第 ${instruction.line} 行：條件不成立，小芽略過了這個行動。`);
+      return { done: nextInstruction >= program.length, skipped: true };
+    }
     const result = instruction.action();
     if (!result.ok) {
       setStatus(`第 ${instruction.line} 行：${result.message}`, 'error');
@@ -375,7 +422,12 @@
     const after = code.value.slice(end);
     const needsLeadingBreak = before.length > 0 && !before.endsWith('\n');
     const needsTrailingBreak = after.length > 0 && !after.startsWith('\n');
-    const call = command === 'repeat' ? 'repeat(2, moveForward);' : `${command}();`;
+    const snippets = {
+      repeat: 'repeat(2, moveForward);',
+      ifLight: 'if (lightIsPresent()) collectLight();',
+      ifBlocked: 'if (pathAheadIsBlocked()) turnLeft();',
+    };
+    const call = snippets[command] ?? `${command}();`;
     const insertion = `${needsLeadingBreak ? '\n' : ''}${call}${needsTrailingBreak ? '\n' : ''}`;
     code.setRangeText(insertion, start, end, 'end');
     code.focus();
@@ -383,8 +435,8 @@
   }
 
   function enterNextMission() {
-    if (levelIndex !== 0) return;
-    levelIndex = 1;
+    if (levelIndex >= LEVELS.length - 1) return;
+    levelIndex += 1;
     program = null;
     nextInstruction = 0;
     rover = { ...level().start };
@@ -393,14 +445,17 @@
     hasActionError = false;
     winCard.hidden = true;
     code.value = level().starter;
-    topNote.innerHTML = `<i></i> 任務 02 · 重複的路徑`;
-    fieldLog.textContent = 'SILENT PLANET / FIELD LOG 002';
+    const ordinal = String(levelIndex + 1).padStart(2, '0');
+    topNote.innerHTML = `<i></i> 任務 ${ordinal} · ${level().name}`;
+    fieldLog.textContent = `SILENT PLANET / FIELD LOG ${ordinal}`;
     missionTitle.innerHTML = level().title;
     missionLead.textContent = level().lead;
     worldTitle.textContent = level().area;
     hintCopy.innerHTML = level().hint;
-    repeatCommand.hidden = false;
-    help.textContent = '這一段有重複路徑。試著讓 repeat 替你少寫幾次移動。';
+    repeatCommand.hidden = levelIndex < 1;
+    lightCondition.hidden = levelIndex < 2;
+    wallCondition.hidden = levelIndex < 2;
+    help.textContent = level().instruction;
     updateGutter();
     initMap();
     setStatus('新訊號已定位。這次試試把重複的移動收進一行程式。');
