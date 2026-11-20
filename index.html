@@ -4,39 +4,103 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#101820" />
-    <meta name="description" content="一款讓程式學習自然融入冒險與解謎的遊戲。" />
-    <title>程式冒險｜在遊戲中學會程式</title>
+    <meta name="description" content="編寫程式，引導探測機在沉睡星球找回光種。" />
+    <title>光種計畫｜程式冒險</title>
     <link rel="stylesheet" href="./style.css" />
+    <script src="./game.js" defer></script>
   </head>
   <body>
-    <main>
-      <section class="hero" aria-labelledby="title">
-        <div class="orbit orbit-one" aria-hidden="true"></div>
-        <div class="orbit orbit-two" aria-hidden="true"></div>
-        <div class="content">
-          <p class="eyebrow"><span class="signal"></span> 一場正在構思中的冒險</p>
-          <h1 id="title">讓程式成為<br /><span>冒險的一部分。</span></h1>
-          <p class="intro">探索未知、破解機關、幫助夥伴。用自己的程式思維改變遊戲世界，在不知不覺間學會寫程式。</p>
-          <a class="button" href="./knowledge/plan.md">看看我們的計畫 <span aria-hidden="true">↗</span></a>
-          <p class="status">目前進度 <strong>世界觀與玩法規劃中</strong></p>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="光種計畫首頁"><span class="brand-mark">✳</span> 光種計畫</a>
+      <span class="top-note"><i></i> 任務 01 · 初次接觸</span>
+      <a class="plan-link" href="./knowledge/plan.md">開發計畫 <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="top">
+      <section class="mission-head" aria-labelledby="mission-title">
+        <div class="mission-copy">
+          <p class="eyebrow"><span class="signal"></span> SILENT PLANET / FIELD LOG 001</p>
+          <h1 id="mission-title">星球失去光了。<br /><em>交給你和小芽。</em></h1>
+          <p class="lead">導航門的光種散落在地表。寫下行動指令，帶領探測機小芽找回它們，重新點亮返航路線。</p>
         </div>
-        <div class="scene" aria-hidden="true">
-          <div class="moon"></div>
-          <div class="star star-a">✦</div><div class="star star-b">✧</div><div class="star star-c">✦</div>
-          <div class="platform platform-back"></div>
-          <div class="portal"><div class="portal-core"></div></div>
-          <div class="platform platform-front"></div>
-          <div class="bot"><div class="antenna"></div><div class="bot-face"><i></i><i></i></div><div class="bot-base"></div></div>
-          <div class="code-chip">&gt; explore()</div>
+        <div class="mission-meta" aria-label="任務目標">
+          <span class="meta-label">MISSION OBJECTIVE</span>
+          <strong><span id="goal-count">0 / 2</span> 找回光種</strong>
+          <span class="meta-separator"></span>
+          <span class="meta-label">當前座標</span>
+          <strong id="coordinates">X 01 · Y 05</strong>
         </div>
-        <div class="scroll-note">一個好玩的遊戲，順便學會程式 <span>↓</span></div>
       </section>
-      <section class="principles" aria-label="遊戲設計方向">
-        <article><span>01</span><h2>先好玩，再學會</h2><p>用探索和挑戰推動玩家前進，讓學習自然發生在遊戲過程裡。</p></article>
-        <article><span>02</span><h2>程式改變世界</h2><p>寫下的指令會操控角色、解開機關，讓每次嘗試都有看得見的結果。</p></article>
-        <article><span>03</span><h2>從好奇開始冒險</h2><p>在故事與關卡中逐步發現程式的力量，按自己的節奏探索新能力。</p></article>
+
+      <section class="workbench" aria-label="任務操作區">
+        <div class="world-panel panel">
+          <div class="panel-head">
+            <div><span class="panel-index">01</span><span class="panel-title">沉睡星球 · 著陸區</span></div>
+            <span class="live-indicator"><i></i> LIVE</span>
+          </div>
+          <div class="world-frame">
+            <div class="sky-glow" aria-hidden="true"></div>
+            <div id="world" class="world" role="grid" aria-label="星球任務地圖"></div>
+            <div class="map-coords" aria-hidden="true"><span>N ↑</span><span>SECTOR 04-A</span></div>
+            <div id="toast" class="toast" role="status" aria-live="polite"></div>
+            <div id="win-card" class="win-card" hidden>
+              <span class="win-spark">✦</span>
+              <p class="win-eyebrow">SIGNAL RESTORED</p>
+              <h2>星球重新亮起了。</h2>
+              <p>小芽收到返航訊號。這段路，是你寫出來的。</p>
+              <button id="replay-win" class="text-button" type="button">再走一次 ↗</button>
+            </div>
+          </div>
+          <div class="world-legend" aria-label="地圖圖例">
+            <span><i class="legend-rover">●</i> 小芽</span>
+            <span><i class="legend-seed">✦</i> 光種</span>
+            <span><i class="legend-gate">⌒</i> 導航門</span>
+            <span><i class="legend-rock">▰</i> 岩壁</span>
+          </div>
+          <div class="status-strip"><span class="status-dot"></span><p id="status" role="status" aria-live="polite">著陸完成。先看看地圖，再決定小芽要怎麼走。</p></div>
+        </div>
+
+        <aside class="code-panel panel" aria-labelledby="code-title">
+          <div class="panel-head">
+            <div><span class="panel-index">02</span><span id="code-title" class="panel-title">行動程式</span></div>
+            <span class="language-tag">JAVASCRIPT / STARTER</span>
+          </div>
+          <div class="editor-wrap">
+            <div class="line-gutter" id="line-gutter" aria-hidden="true">1<br />2<br />3<br />4<br />5<br />6<br />7<br />8<br />9<br />10<br />11<br />12</div>
+            <textarea id="code" class="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="輸入小芽的 JavaScript 行動指令" aria-describedby="editor-help" maxlength="1200">// 從這裡開始，安排小芽的行動
+moveForward();
+moveForward();
+collectLight();
+
+// 還有一顆光種和導航門等著你</textarea>
+          </div>
+          <p id="editor-help" class="editor-help">一行一個指令。試著補上轉向、前進，再取回光種。</p>
+          <div class="command-drawer">
+            <div class="drawer-title"><span>已解鎖的行動</span><span>點選可插入</span></div>
+            <div class="command-list">
+              <button class="command" type="button" data-command="moveForward">moveForward<span>()</span><b>向前一步</b></button>
+              <button class="command" type="button" data-command="turnLeft">turnLeft<span>()</span><b>左轉</b></button>
+              <button class="command" type="button" data-command="turnRight">turnRight<span>()</span><b>右轉</b></button>
+              <button class="command" type="button" data-command="collectLight">collectLight<span>()</span><b>拾取光種</b></button>
+              <button class="command" type="button" data-command="openGate">openGate<span>()</span><b>啟動導航門</b></button>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button id="run" class="run-button" type="button"><span aria-hidden="true">▶</span> 執行程式 <kbd>Ctrl ↵</kbd></button>
+            <button id="step" class="step-button" type="button"><span aria-hidden="true">▷|</span> 單步</button>
+            <button id="reset" class="reset-button" type="button" aria-label="重設本次行動">重設</button>
+          </div>
+          <details class="field-note" open>
+            <summary><span class="note-icon">✧</span> 小芽的任務筆記 <span class="chevron">⌄</span></summary>
+            <div class="note-body" id="hint-copy"><code>moveForward();</code> 會依照小芽面向移動一格。先找出光種在哪一格，再安排方向和步數。</div>
+          </details>
+        </aside>
       </section>
-      <footer>程式冒險 <span>概念開發中</span></footer>
+
+      <section class="field-footer">
+        <p><span>TRANSMISSION END</span> 每一次嘗試，都會讓地圖多透露一點線索。</p>
+        <a href="./knowledge/experience.md">開發經驗 ↗</a>
+      </section>
     </main>
   </body>
 </html>
