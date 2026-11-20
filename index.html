@@ -12,7 +12,14 @@
   <body>
     <header class="topbar">
       <a class="brand" href="#top" aria-label="光種計畫首頁"><span class="brand-mark">✳</span> 光種計畫</a>
-      <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
+      <div class="top-progress">
+        <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
+        <nav class="mission-nav" aria-label="已解鎖任務">
+          <button id="previous-mission" type="button" aria-label="回到上一段已解鎖任務" disabled>←</button>
+          <span id="mission-position" aria-live="polite">01 / 03</span>
+          <button id="next-unlocked" type="button" aria-label="前往下一段已解鎖任務" disabled>→</button>
+        </nav>
+      </div>
       <a class="plan-link" href="./knowledge/plan.md">開發計畫 <span aria-hidden="true">↗</span></a>
     </header>
 
@@ -103,6 +110,7 @@ collectLight();
 
       <section class="field-footer">
         <p><span>TRANSMISSION END</span> 每一次嘗試，都會讓地圖多透露一點線索。</p>
+        <span class="progress-note">已解鎖任務保存在此瀏覽器</span>
         <a href="./knowledge/experience.md">開發經驗 ↗</a>
       </section>
     </main>

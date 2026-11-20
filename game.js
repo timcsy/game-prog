@@ -42,6 +42,15 @@
       instruction: '先檢查條件，再決定要不要執行後面的行動。',
     },
   ];
+  const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
+  function loadUnlockedMission() {
+    try {
+      const saved = Number(window.localStorage.getItem(PROGRESS_KEY));
+      return Number.isInteger(saved) && saved >= 0 ? Math.min(saved, LEVELS.length - 1) : 0;
+    } catch {
+      return 0;
+    }
+  }
   const level = () => LEVELS[levelIndex];
   const DIRECTIONS = [
     { x: 0, y: -1, name: '北' },
@@ -75,6 +84,9 @@
   const toast = document.querySelector('#toast');
   const winCard = document.querySelector('#win-card');
   const nextMissionButton = document.querySelector('#next-mission');
+  const previousMissionButton = document.querySelector('#previous-mission');
+  const nextUnlockedButton = document.querySelector('#next-unlocked');
+  const missionPosition = document.querySelector('#mission-position');
   const topNote = document.querySelector('#top-note');
   const fieldLog = document.querySelector('#field-log');
   const missionTitle = document.querySelector('#mission-title');
@@ -86,7 +98,8 @@
   const wallCondition = document.querySelector('#wall-condition');
   const runLabel = runButton.innerHTML;
 
-  let levelIndex = 0;
+  let highestUnlocked = loadUnlockedMission();
+  let levelIndex = highestUnlocked;
   let rover = { ...level().start };
   let collected = new Set();
   let gateOpen = false;
@@ -232,6 +245,13 @@
     if (collected.size < level().seeds.length) {
       return { ok: false, message: '導航門還沒有足夠能量。先找回所有光種。' };
     }
+    highestUnlocked = Math.max(highestUnlocked, Math.min(levelIndex + 1, LEVELS.length - 1));
+    try {
+      window.localStorage.setItem(PROGRESS_KEY, String(highestUnlocked));
+    } catch {
+      // Progress still unlocks for the current session when storage is unavailable.
+    }
+    updateMissionNavigation();
     gateOpen = true;
     drawWorld();
     winCard.hidden = false;
@@ -251,6 +271,14 @@
     const x = rover.x + vector.x;
     const y = rover.y + vector.y;
     return !tileAt(x, y) || level().walls.has(`${x},${y}`);
+  }
+
+  function updateMissionNavigation() {
+    const current = String(levelIndex + 1).padStart(2, '0');
+    const total = String(LEVELS.length).padStart(2, '0');
+    missionPosition.textContent = `${current} / ${total}`;
+    previousMissionButton.disabled = levelIndex <= 0;
+    nextUnlockedButton.disabled = levelIndex >= highestUnlocked;
   }
 
   function parseProgram() {
@@ -434,17 +462,7 @@
     updateGutter();
   }
 
-  function enterNextMission() {
-    if (levelIndex >= LEVELS.length - 1) return;
-    levelIndex += 1;
-    program = null;
-    nextInstruction = 0;
-    rover = { ...level().start };
-    collected = new Set();
-    gateOpen = false;
-    hasActionError = false;
-    winCard.hidden = true;
-    code.value = level().starter;
+  function showMissionDetails() {
     const ordinal = String(levelIndex + 1).padStart(2, '0');
     topNote.innerHTML = `<i></i> 任務 ${ordinal} · ${level().name}`;
     fieldLog.textContent = `SILENT PLANET / FIELD LOG ${ordinal}`;
@@ -452,14 +470,41 @@
     missionLead.textContent = level().lead;
     worldTitle.textContent = level().area;
     hintCopy.innerHTML = level().hint;
+    code.value = level().starter;
     repeatCommand.hidden = levelIndex < 1;
     lightCondition.hidden = levelIndex < 2;
     wallCondition.hidden = levelIndex < 2;
     help.textContent = level().instruction;
     updateGutter();
+  }
+
+  function enterMission(index) {
+    if (index < 0 || index > highestUnlocked || index >= LEVELS.length) return;
+    runId += 1;
+    setBusy(false);
+    levelIndex = index;
+    program = null;
+    nextInstruction = 0;
+    rover = { ...level().start };
+    collected = new Set();
+    gateOpen = false;
+    hasActionError = false;
+    winCard.hidden = true;
+    toast.classList.remove('show');
+    help.classList.remove('error-text');
+    showMissionDetails();
     initMap();
-    setStatus('新訊號已定位。這次試試把重複的移動收進一行程式。');
-    document.querySelector('#mission-title').focus({ preventScroll: true });
+    updateMissionNavigation();
+    setStatus('新訊號已定位。讀讀任務筆記，再安排小芽的行動。');
+    missionTitle.focus({ preventScroll: true });
+  }
+
+  function enterNextMission() {
+    enterMission(levelIndex + 1);
+  }
+
+  function enterPreviousMission() {
+    enterMission(levelIndex - 1);
   }
 
   function updateGutter() {
@@ -488,6 +533,8 @@
   resetButton.addEventListener('click', resetMission);
   document.querySelector('#replay-win').addEventListener('click', resetMission);
   nextMissionButton.addEventListener('click', enterNextMission);
+  previousMissionButton.addEventListener('click', enterPreviousMission);
+  nextUnlockedButton.addEventListener('click', enterNextMission);
   document.querySelectorAll('.command').forEach((button) => {
     button.addEventListener('click', () => insertCommand(button.dataset.command));
   });
@@ -509,6 +556,8 @@
     }
   });
 
+  showMissionDetails();
+  updateMissionNavigation();
   initMap();
   updateGutter();
 })();
