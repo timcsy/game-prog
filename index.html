@@ -12,16 +12,16 @@
   <body>
     <header class="topbar">
       <a class="brand" href="#top" aria-label="光種計畫首頁"><span class="brand-mark">✳</span> 光種計畫</a>
-      <span class="top-note"><i></i> 任務 01 · 初次接觸</span>
+      <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
       <a class="plan-link" href="./knowledge/plan.md">開發計畫 <span aria-hidden="true">↗</span></a>
     </header>
 
     <main id="top">
       <section class="mission-head" aria-labelledby="mission-title">
         <div class="mission-copy">
-          <p class="eyebrow"><span class="signal"></span> SILENT PLANET / FIELD LOG 001</p>
-          <h1 id="mission-title">星球失去光了。<br /><em>交給你和小芽。</em></h1>
-          <p class="lead">導航門的光種散落在地表。寫下行動指令，帶領探測機小芽找回它們，重新點亮返航路線。</p>
+          <p class="eyebrow"><span class="signal"></span> <span id="field-log">SILENT PLANET / FIELD LOG 001</span></p>
+          <h1 id="mission-title" tabindex="-1">星球失去光了。<br /><em>交給你和小芽。</em></h1>
+          <p class="lead" id="mission-lead">導航門的光種散落在地表。寫下行動指令，帶領探測機小芽找回它們，重新點亮返航路線。</p>
         </div>
         <div class="mission-meta" aria-label="任務目標">
           <span class="meta-label">MISSION OBJECTIVE</span>
@@ -35,7 +35,7 @@
       <section class="workbench" aria-label="任務操作區">
         <div class="world-panel panel">
           <div class="panel-head">
-            <div><span class="panel-index">01</span><span class="panel-title">沉睡星球 · 著陸區</span></div>
+            <div><span class="panel-index">01</span><span class="panel-title" id="world-title">沉睡星球 · 著陸區</span></div>
             <span class="live-indicator"><i></i> LIVE</span>
           </div>
           <div class="world-frame">
@@ -48,6 +48,7 @@
               <p class="win-eyebrow">SIGNAL RESTORED</p>
               <h2>星球重新亮起了。</h2>
               <p>小芽收到返航訊號。這段路，是你寫出來的。</p>
+              <button id="next-mission" class="text-button" type="button" hidden>前往下一段訊號 ↗</button>
               <button id="replay-win" class="text-button" type="button">再走一次 ↗</button>
             </div>
           </div>
@@ -83,6 +84,7 @@ collectLight();
               <button class="command" type="button" data-command="turnRight">turnRight<span>()</span><b>右轉</b></button>
               <button class="command" type="button" data-command="collectLight">collectLight<span>()</span><b>拾取光種</b></button>
               <button class="command" type="button" data-command="openGate">openGate<span>()</span><b>啟動導航門</b></button>
+              <button id="repeat-command" class="command" type="button" data-command="repeat" hidden>repeat<span>(2, moveForward)</span><b>重複行動</b></button>
             </div>
           </div>
           <div class="editor-actions">
