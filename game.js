@@ -81,10 +81,14 @@
   function initMap() {
     world.replaceChildren();
     for (let y = 0; y < HEIGHT; y += 1) {
+      const row = document.createElement('div');
+      row.className = 'world-row';
+      row.setAttribute('role', 'row');
       for (let x = 0; x < WIDTH; x += 1) {
         const tile = document.createElement('div');
         tile.className = 'tile';
         tile.setAttribute('role', 'gridcell');
+        tile.tabIndex = -1;
         tile.dataset.x = String(x);
         tile.dataset.y = String(y);
         const key = `${x},${y}`;
@@ -102,13 +106,16 @@
           if (isSeed) tile.classList.add('seed');
           if (isGate) tile.classList.add('gate');
         }
-        world.append(tile);
+        row.append(tile);
       }
+      world.append(row);
     }
     drawWorld();
   }
 
   function drawWorld() {
+    const keepRoverFocus = document.activeElement?.classList.contains('rover-tile') ?? false;
+    world.querySelectorAll('.tile').forEach((tile) => { tile.tabIndex = -1; });
     world.querySelectorAll('.rover-tile').forEach((tile) => tile.classList.remove('rover-tile'));
     world.querySelectorAll('.rover').forEach((sprite) => sprite.remove());
     world.querySelectorAll('.seed').forEach((tile) => {
@@ -125,12 +132,14 @@
     const roverTile = world.querySelector(`[data-x="${rover.x}"][data-y="${rover.y}"]`);
     if (roverTile) {
       roverTile.classList.add('rover-tile');
+      roverTile.tabIndex = 0;
       roverTile.setAttribute('aria-label', `小芽，面向${DIRECTIONS[rover.direction].name}方，X ${rover.x + 1}，Y ${rover.y + 1}`);
       const sprite = document.createElement('span');
       sprite.className = `rover dir-${rover.direction}`;
       sprite.textContent = ARROWS[rover.direction];
       sprite.setAttribute('aria-hidden', 'true');
       roverTile.append(sprite);
+      if (keepRoverFocus) roverTile.focus({ preventScroll: true });
     }
     coordinates.textContent = `X ${String(rover.x + 1).padStart(2, '0')} · Y ${String(rover.y + 1).padStart(2, '0')}`;
     goalCount.textContent = `${collected.size} / ${level().seeds.length}`;
@@ -403,7 +412,23 @@
     gutter.innerHTML = Array.from({ length: count }, (_, index) => String(index + 1)).join('<br>');
   }
 
+  function moveMapFocus(event) {
+    const offsets = {
+      ArrowUp: [0, -1],
+      ArrowRight: [1, 0],
+      ArrowDown: [0, 1],
+      ArrowLeft: [-1, 0],
+    };
+    const offset = offsets[event.key];
+    const current = event.target.closest('.tile');
+    if (!offset || !current) return;
+    event.preventDefault();
+    const next = tileAt(Number(current.dataset.x) + offset[0], Number(current.dataset.y) + offset[1]);
+    next?.focus();
+  }
+
   runButton.addEventListener('click', runProgram);
+  world.addEventListener('keydown', moveMapFocus);
   stepButton.addEventListener('click', singleStep);
   resetButton.addEventListener('click', resetMission);
   document.querySelector('#replay-win').addEventListener('click', resetMission);
