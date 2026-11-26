@@ -258,10 +258,12 @@
     updateMissionNavigation();
     gateOpen = true;
     drawWorld();
+    world.hidden = true;
     winCard.hidden = false;
     nextMissionButton.hidden = levelIndex >= LEVELS.length - 1;
     setStatus('導航門亮起來了！你幫小芽接通返航訊號。');
     showToast('訊號已恢復！');
+    (nextMissionButton.hidden ? document.querySelector('#replay-win') : nextMissionButton).focus();
     return { ok: true, won: true };
   }
 
@@ -336,6 +338,7 @@
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
+    world.hidden = false;
     drawWorld();
     setStatus('小芽準備好了，正在執行你的程式。');
   }
@@ -363,6 +366,8 @@
       setStatus(`程式跑完了，背包有 ${collected.size} 顆光種。看看小芽還漏了哪些行動。`);
     } else if (rover.x !== level().gate.x || rover.y !== level().gate.y) {
       setStatus('光種都找齊了。導航門在右側，安排小芽走完最後一段路吧。');
+    } else {
+      setStatus('小芽已抵達導航門。加上 openGate();，讓導航門亮起來。');
     }
   }
 
@@ -440,6 +445,7 @@
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
+    world.hidden = false;
     toast.classList.remove('show');
     help.classList.remove('error-text');
     help.textContent = level().instruction;
@@ -504,6 +510,7 @@
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
+    world.hidden = false;
     toast.classList.remove('show');
     help.classList.remove('error-text');
     showMissionDetails();
@@ -545,7 +552,10 @@
   world.addEventListener('keydown', moveMapFocus);
   stepButton.addEventListener('click', singleStep);
   resetButton.addEventListener('click', resetMission);
-  document.querySelector('#replay-win').addEventListener('click', resetMission);
+  document.querySelector('#replay-win').addEventListener('click', () => {
+    resetMission();
+    code.focus();
+  });
   nextMissionButton.addEventListener('click', enterNextMission);
   previousMissionButton.addEventListener('click', enterPreviousMission);
   nextUnlockedButton.addEventListener('click', enterNextMission);
