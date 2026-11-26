@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { chromium, firefox, webkit } = require('playwright');
+const engines = { chromium, firefox, webkit };
+const engineName = process.env.TEST_BROWSER || 'chromium';
 
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -21,7 +23,8 @@ before(async () => {
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   url = `http://127.0.0.1:${server.address().port}/`;
-  browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
+  if (!engines[engineName]) throw new Error(`Unsupported browser: ${engineName}`);
+  browser = await engines[engineName].launch({ headless: true, ...(engineName === 'chromium' && process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
 });
 
 after(async () => {
@@ -139,12 +142,14 @@ test('map exposes its rows and cells and distinguishes a wall from the map edge'
   try {
     const page = await context.newPage();
     await page.goto(url);
-    const client = await context.newCDPSession(page);
-    const { nodes } = await client.send('Accessibility.getFullAXTree');
-    const count = (role) => nodes.filter((node) => node.role?.value === role).length;
-    assert.equal(count('grid'), 1);
-    assert.equal(count('row'), 6);
-    assert.equal(count('gridcell'), 42);
+    if (engineName === 'chromium') {
+      const client = await context.newCDPSession(page);
+      const { nodes } = await client.send('Accessibility.getFullAXTree');
+      const count = (role) => nodes.filter((node) => node.role?.value === role).length;
+      assert.equal(count('grid'), 1);
+      assert.equal(count('row'), 6);
+      assert.equal(count('gridcell'), 42);
+    }
     await page.locator('#code').fill('turnRight();\nturnRight();\nmoveForward();');
     for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
     assert.match(await page.locator('#status').textContent(), /地圖邊界/);
@@ -154,7 +159,7 @@ test('map exposes its rows and cells and distinguishes a wall from the map edge'
   } finally { await context.close(); }
 });
 
-test('touch players can insert and step through commands on a narrow screen', async () => {
+test('touch players can insert and step through commands on a narrow screen', { skip: engineName === 'firefox' && 'Firefox does not support Playwright mobile emulation' }, async () => {
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   try {
     const page = await context.newPage();
