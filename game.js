@@ -207,7 +207,10 @@
     const x = rover.x + vector.x;
     const y = rover.y + vector.y;
     const nextTile = tileAt(x, y);
-    if (!nextTile || level().walls.has(`${x},${y}`)) {
+    if (!nextTile) {
+      return { ok: false, message: '小芽走到地圖邊界了。看看地圖，換個方向再試。' };
+    }
+    if (level().walls.has(`${x},${y}`)) {
       return { ok: false, message: '岩壁擋住了去路。改變方向，或看看地圖上的空隙。' };
     }
     rover.x = x;

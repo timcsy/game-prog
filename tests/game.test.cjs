@@ -133,3 +133,23 @@ test('narrow map fits and reset cancels a running program', async () => {
     assert.equal(await page.locator('#run').isEnabled(), true);
   } finally { await context.close(); }
 });
+
+test('map exposes its rows and cells and distinguishes a wall from the map edge', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    const client = await context.newCDPSession(page);
+    const { nodes } = await client.send('Accessibility.getFullAXTree');
+    const count = (role) => nodes.filter((node) => node.role?.value === role).length;
+    assert.equal(count('grid'), 1);
+    assert.equal(count('row'), 6);
+    assert.equal(count('gridcell'), 42);
+    await page.locator('#code').fill('turnRight();\nturnRight();\nmoveForward();');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /地圖邊界/);
+    await page.locator('#code').fill('moveForward();\nmoveForward();\nmoveForward();');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /岩壁/);
+  } finally { await context.close(); }
+});
