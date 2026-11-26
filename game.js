@@ -210,7 +210,7 @@
     rover.x = x;
     rover.y = y;
     drawWorld();
-    setStatus(`小芽前進一步，現在面向${DIRECTIONS[rover.direction].name}方。`);
+    setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。`);
     return { ok: true };
   }
 
@@ -363,13 +363,15 @@
 
   function finishProgram() {
     if (gateOpen || hasActionError) return;
+    let nextHint;
     if (collected.size < level().seeds.length) {
-      setStatus(`程式跑完了，背包有 ${collected.size} 顆光種。看看小芽還漏了哪些行動。`);
+      nextHint = `程式跑完了，背包有 ${collected.size} 顆光種。看看小芽還漏了哪些行動。`;
     } else if (rover.x !== level().gate.x || rover.y !== level().gate.y) {
-      setStatus('光種都找齊了。導航門在右側，安排小芽走完最後一段路吧。');
+      nextHint = '光種都找齊了。導航門在右側，安排小芽走完最後一段路吧。';
     } else {
-      setStatus('小芽已抵達導航門。加上 openGate();，讓導航門亮起來。');
+      nextHint = '小芽已抵達導航門。加上 openGate();，讓導航門亮起來。';
     }
+    setStatus(`${status.textContent} ${nextHint}`);
   }
 
   function executeNext() {
@@ -391,6 +393,7 @@
       nextInstruction = program.length;
       return { done: true, error: true };
     }
+    setStatus(`第 ${instruction.line} 行：${status.textContent}`);
     if (result.won) return { done: true, won: true };
     return { done: nextInstruction >= program.length };
   }
