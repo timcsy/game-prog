@@ -331,7 +331,7 @@
         if (!repeatedAction) throw new Error(`第 ${index + 1} 行：repeat 只能重複已解鎖的單一步驟行動。`);
         if (count < 1 || count > 10) throw new Error(`第 ${index + 1} 行：repeat 次數請設在 1 到 10 之間。`);
         for (let iteration = 0; iteration < count; iteration += 1) {
-          actions.push({ action: repeatedAction, name: `repeat → ${repeat[2]}`, line: index + 1 });
+          actions.push({ action: repeatedAction, name: `repeat → ${repeat[2]}`, line: index + 1, repetition: { current: iteration + 1, total: count } });
         }
         if (actions.length > 50) throw new Error('這次行動太長了，先試試 50 步以內。');
         continue;
@@ -400,21 +400,23 @@
     highlightLine(instruction.line);
     help.classList.remove('error-text');
     const actionName = instruction.name.startsWith('if (') ? instruction.name : `${instruction.name}()`;
-    help.textContent = `第 ${instruction.line} 行 · ${actionName}`;
+    const repetition = instruction.repetition ? `（第 ${instruction.repetition.current} / ${instruction.repetition.total} 次）` : '';
+    const location = `第 ${instruction.line} 行${repetition}`;
+    help.textContent = `${location} · ${actionName}`;
     if (instruction.condition && !instruction.condition()) {
-      setStatus(`第 ${instruction.line} 行：條件不成立（${instruction.conditionName}()），小芽略過了這個行動。`);
+      setStatus(`${location}：條件不成立（${instruction.conditionName}()），小芽略過了這個行動。`);
       return { done: nextInstruction >= program.length, skipped: true };
     }
     const conditionFeedback = instruction.condition ? `條件成立（${instruction.conditionName}()）。` : '';
     const result = instruction.action();
     if (!result.ok) {
-      setStatus(`第 ${instruction.line} 行：${conditionFeedback}${result.message}`, 'error');
+      setStatus(`${location}：${conditionFeedback}${result.message}`, 'error');
       showToast(result.message, 'error');
       hasActionError = true;
       nextInstruction = program.length;
       return { done: true, error: true };
     }
-    setStatus(`第 ${instruction.line} 行：${conditionFeedback}${status.textContent}`);
+    setStatus(`${location}：${conditionFeedback}${status.textContent}`);
     if (result.won) return { done: true, won: true };
     return { done: nextInstruction >= program.length };
   }

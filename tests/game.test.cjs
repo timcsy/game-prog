@@ -297,3 +297,24 @@ test('condition feedback identifies true and false sensors, including failed act
     assert.equal(await page.locator('#win-card').isHidden(), true);
   } finally { await context.close(); }
 });
+
+test('repeat feedback shows each iteration and identifies where an action fails', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '1'));
+    await page.reload();
+    await page.locator('#code').fill('repeat(3, moveForward);');
+    for (let i = 1; i <= 3; i += 1) {
+      await page.locator('#step').click();
+      const expected = new RegExp(`第 1 行（第 ${i} / 3 次）`);
+      assert.match(await page.locator('#status').textContent(), expected);
+      assert.match(await page.locator('#editor-help').textContent(), expected);
+      assert.equal(await page.locator('#line-gutter .active-line').textContent(), '1');
+    }
+    await page.locator('#code').fill('repeat(10, moveForward);');
+    for (let i = 0; i < 7; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /第 1 行（第 7 \/ 10 次）.*地圖邊界/);
+  } finally { await context.close(); }
+});
