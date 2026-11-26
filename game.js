@@ -142,7 +142,8 @@
   }
 
   function drawWorld() {
-    const keepRoverFocus = document.activeElement?.classList.contains('rover-tile') ?? false;
+    const focusedTile = world.contains(document.activeElement) ? document.activeElement : null;
+    const keepRoverFocus = focusedTile?.classList.contains('rover-tile') ?? false;
     world.querySelectorAll('.tile').forEach((tile) => {
       tile.tabIndex = -1;
       const x = Number(tile.dataset.x);
@@ -169,7 +170,7 @@
     const roverTile = world.querySelector(`[data-x="${rover.x}"][data-y="${rover.y}"]`);
     if (roverTile) {
       roverTile.classList.add('rover-tile');
-      roverTile.tabIndex = 0;
+      (focusedTile && !keepRoverFocus ? focusedTile : roverTile).tabIndex = 0;
       const sprite = document.createElement('span');
       sprite.className = `rover dir-${rover.direction}`;
       sprite.textContent = ARROWS[rover.direction];
@@ -545,7 +546,11 @@
     if (!offset || !current) return;
     event.preventDefault();
     const next = tileAt(Number(current.dataset.x) + offset[0], Number(current.dataset.y) + offset[1]);
-    next?.focus();
+    if (next) {
+      current.tabIndex = -1;
+      next.tabIndex = 0;
+      next.focus();
+    }
   }
 
   runButton.addEventListener('click', runProgram);
