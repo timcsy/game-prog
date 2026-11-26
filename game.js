@@ -127,14 +127,10 @@
         const isWall = level().walls.has(key);
         const isSeed = level().seeds.some((seed) => seed.x === x && seed.y === y);
         const isGate = level().gate.x === x && level().gate.y === y;
-        const position = `X ${x + 1}，Y ${y + 1}`;
         if (isWall) {
           tile.classList.add('wall');
-          tile.setAttribute('aria-label', `${position}，岩壁`);
         } else {
           tile.classList.add('path');
-          const landmark = [isSeed && '光種', isGate && '導航門'].filter(Boolean).join('，');
-          tile.setAttribute('aria-label', `${position}${landmark ? `，${landmark}` : '，可通行'}`);
           if (isSeed) tile.classList.add('seed');
           if (isGate) tile.classList.add('gate');
         }
@@ -147,25 +143,33 @@
 
   function drawWorld() {
     const keepRoverFocus = document.activeElement?.classList.contains('rover-tile') ?? false;
-    world.querySelectorAll('.tile').forEach((tile) => { tile.tabIndex = -1; });
+    world.querySelectorAll('.tile').forEach((tile) => {
+      tile.tabIndex = -1;
+      const x = Number(tile.dataset.x);
+      const y = Number(tile.dataset.y);
+      const seedIndex = level().seeds.findIndex((seed) => seed.x === x && seed.y === y);
+      const landmarks = [];
+      if (tile.classList.contains('wall')) landmarks.push('岩壁');
+      if (seedIndex !== -1) landmarks.push(`光種${collected.has(seedIndex) ? '，已收集' : ''}`);
+      if (x === level().gate.x && y === level().gate.y) landmarks.push(`導航門${gateOpen ? '，已啟動' : ''}`);
+      if (x === rover.x && y === rover.y) landmarks.unshift(`小芽，面向${DIRECTIONS[rover.direction].name}方`);
+      tile.setAttribute('aria-label', `X ${x + 1}，Y ${y + 1}，${landmarks.join('，') || '可通行'}`);
+    });
     world.querySelectorAll('.rover-tile').forEach((tile) => tile.classList.remove('rover-tile'));
     world.querySelectorAll('.rover').forEach((sprite) => sprite.remove());
     world.querySelectorAll('.seed').forEach((tile) => {
       const seed = level().seeds.findIndex((item) => item.x === Number(tile.dataset.x) && item.y === Number(tile.dataset.y));
       tile.classList.toggle('collected', collected.has(seed));
-      tile.setAttribute('aria-label', `X ${Number(tile.dataset.x) + 1}，Y ${Number(tile.dataset.y) + 1}，光種${collected.has(seed) ? '，已收集' : ''}`);
     });
     const gateTile = world.querySelector(`[data-x="${level().gate.x}"][data-y="${level().gate.y}"]`);
     if (gateTile) {
       gateTile.classList.toggle('open', gateOpen);
-      gateTile.setAttribute('aria-label', `X ${level().gate.x + 1}，Y ${level().gate.y + 1}，導航門${gateOpen ? '，已啟動' : ''}`);
     }
 
     const roverTile = world.querySelector(`[data-x="${rover.x}"][data-y="${rover.y}"]`);
     if (roverTile) {
       roverTile.classList.add('rover-tile');
       roverTile.tabIndex = 0;
-      roverTile.setAttribute('aria-label', `小芽，面向${DIRECTIONS[rover.direction].name}方，X ${rover.x + 1}，Y ${rover.y + 1}`);
       const sprite = document.createElement('span');
       sprite.className = `rover dir-${rover.direction}`;
       sprite.textContent = ARROWS[rover.direction];
@@ -459,7 +463,17 @@
     const insertion = `${needsLeadingBreak ? '\n' : ''}${call}${needsTrailingBreak ? '\n' : ''}`;
     code.setRangeText(insertion, start, end, 'end');
     code.focus();
+    onCodeChanged();
+  }
+
+  function onCodeChanged() {
+    const wasInProgress = program && nextInstruction > 0 && nextInstruction < program.length;
+    program = null;
+    nextInstruction = 0;
     updateGutter();
+    help.classList.remove('error-text');
+    help.textContent = level().instruction;
+    if (wasInProgress) setStatus('程式已修改，下次執行或單步會從起點重新開始。');
   }
 
   function showMissionDetails() {
@@ -538,18 +552,9 @@
   document.querySelectorAll('.command').forEach((button) => {
     button.addEventListener('click', () => insertCommand(button.dataset.command));
   });
-  code.addEventListener('input', () => {
-    updateGutter();
-    help.classList.remove('error-text');
-    help.textContent = level().instruction;
-  });
+  code.addEventListener('input', onCodeChanged);
   code.addEventListener('scroll', () => { gutter.scrollTop = code.scrollTop; });
   code.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab') {
-      event.preventDefault();
-      code.setRangeText('  ', code.selectionStart, code.selectionEnd, 'end');
-      updateGutter();
-    }
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       runProgram();
