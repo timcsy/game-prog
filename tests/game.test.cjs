@@ -217,3 +217,39 @@ test('mission switching preserves each in-page draft, including empty and insert
     assert.match(await page.locator('#code').inputValue(), /repeat\(2, moveForward\)/);
   } finally { await context.close(); }
 });
+
+test('switching missions interrupts execution without losing the edited program', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '1'));
+    await page.reload();
+    await page.locator('#previous-mission').click();
+    const source = 'moveForward();\nmoveForward();\ncollectLight();';
+    await page.locator('#code').fill(source);
+    await page.locator('#run').click();
+    await page.locator('#next-unlocked').click();
+    await page.waitForTimeout(600);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
+    assert.match(await page.locator('#coordinates').textContent(), /X 01.*Y 05/);
+    assert.equal(await page.locator('#run').isEnabled(), true);
+    await page.locator('#previous-mission').click();
+    assert.equal(await page.locator('#code').inputValue(), source);
+  } finally { await context.close(); }
+});
+
+test('a storage write failure still permits in-session progression', async () => {
+  const context = await browser.newContext();
+  try {
+    await context.addInitScript(() => {
+      Storage.prototype.setItem = function () { throw new DOMException('Full', 'QuotaExceededError'); };
+    });
+    const page = await context.newPage();
+    await page.goto(url);
+    await complete(page, 0);
+    assert.match(await page.locator('#progress-note').textContent(), /無法保存/);
+    await page.locator('#next-mission').click();
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
+  } finally { await context.close(); }
+});
