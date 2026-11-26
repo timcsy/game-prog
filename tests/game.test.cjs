@@ -253,3 +253,24 @@ test('a storage write failure still permits in-session progression', async () =>
     assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
   } finally { await context.close(); }
 });
+
+test('execution highlights and reveals the current source line, then clears on reset or edit', async () => {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    const source = `${Array(29).fill('// 探索筆記').join('\n')}\nturnLeft();\nmoveForward();`;
+    await page.locator('#code').fill(source);
+    await page.locator('#step').click();
+    assert.equal(await page.locator('#line-gutter .active-line').textContent(), '30');
+    assert.ok(await page.locator('#code').evaluate((editor) => editor.scrollTop > 0));
+    assert.match(await page.locator('#status').textContent(), /第 30 行/);
+    await page.locator('#step').click();
+    assert.equal(await page.locator('#line-gutter .active-line').textContent(), '31');
+    await page.locator('#reset').click();
+    assert.equal(await page.locator('#line-gutter .active-line').count(), 0);
+    await page.locator('#step').click();
+    await page.locator('#code').fill('turnRight();');
+    assert.equal(await page.locator('#line-gutter .active-line').count(), 0);
+  } finally { await context.close(); }
+});

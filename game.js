@@ -358,6 +358,7 @@
     hasActionError = false;
     winCard.hidden = true;
     world.hidden = false;
+    highlightLine(null);
     drawWorld();
     setStatus('小芽準備好了，正在執行你的程式。');
   }
@@ -396,6 +397,7 @@
     if (!program || nextInstruction >= program.length) return { done: true };
     const instruction = program[nextInstruction];
     nextInstruction += 1;
+    highlightLine(instruction.line);
     help.classList.remove('error-text');
     const actionName = instruction.name.startsWith('if (') ? instruction.name : `${instruction.name}()`;
     help.textContent = `第 ${instruction.line} 行 · ${actionName}`;
@@ -471,6 +473,7 @@
     toast.classList.remove('show');
     help.classList.remove('error-text');
     help.textContent = level().instruction;
+    highlightLine(null);
     drawWorld();
     setStatus('任務已重設。改好行動程式後，再陪小芽出發。');
   }
@@ -553,7 +556,29 @@
 
   function updateGutter() {
     const count = code.value.split('\n').length;
-    gutter.innerHTML = Array.from({ length: count }, (_, index) => String(index + 1)).join('<br>');
+    const lines = Array.from({ length: count }, (_, index) => {
+      const line = document.createElement('span');
+      line.textContent = String(index + 1);
+      return line;
+    });
+    gutter.replaceChildren(...lines);
+    gutter.scrollTop = code.scrollTop;
+  }
+
+  function highlightLine(number) {
+    gutter.querySelector('.active-line')?.classList.remove('active-line');
+    if (number === null) return;
+    const line = gutter.children[number - 1];
+    if (!line) return;
+    line.classList.add('active-line');
+    const style = window.getComputedStyle(code);
+    const lineHeight = parseFloat(style.lineHeight);
+    const padding = parseFloat(style.paddingTop);
+    const top = padding + (number - 1) * lineHeight;
+    const bottom = top + lineHeight;
+    if (top < code.scrollTop + padding) code.scrollTop = top - padding;
+    else if (bottom > code.scrollTop + code.clientHeight - padding) code.scrollTop = bottom - code.clientHeight + padding;
+    gutter.scrollTop = code.scrollTop;
   }
 
   function moveMapFocus(event) {
