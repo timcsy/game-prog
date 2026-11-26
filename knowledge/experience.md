@@ -154,4 +154,5 @@
 
 - **觀察：** GitHub Linux 的 Chromium、Firefox 和 WebKit 測試均通過，但兩次 Pages 部署在上傳步驟成功後立即回報找不到 `github-pages` artifact；稍後工作紀錄中可看到該 artifact。原因尚未確認，可能是服務端時序或暫時性問題。
 - **做法：** 部署失敗時等待 15 秒重試一次；第二次仍失敗就保留失敗狀態。此修正需觀察後續 GitHub Actions 的實際執行，不能保證處理所有服務故障。
+- **驗證：** 新流程在 GitHub 的 Chromium、Firefox、WebKit 測試與 Pages 部署均成功；此次首次部署即成功，尚未實際觸發重試分支。
 - **適用範圍：** 已確認上傳成功，但下游偶發無法立即讀取 artifact 的發布流程；有限重試可緩解短暫失敗，同時保留持續失敗的可見性。
