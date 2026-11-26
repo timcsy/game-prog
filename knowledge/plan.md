@@ -43,6 +43,7 @@
 - [x] 支援在行動指令後加上 JavaScript 單行註解，保留原始行號回饋。
 - [x] 將持續整合改為分別檢查 Chromium、Firefox 和 WebKit，保留各引擎支援的測試範圍。
 - [x] 為 Pages 發布加入一次有限重試，以處理上傳 artifact 後部署步驟暫時找不到它的情況。
+- [x] 更新官方 GitHub Actions 版本，以使用新版執行環境。
 
 ### 待完成
 

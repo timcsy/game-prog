@@ -156,3 +156,9 @@
 - **做法：** 部署失敗時等待 15 秒重試一次；第二次仍失敗就保留失敗狀態。此修正需觀察後續 GitHub Actions 的實際執行，不能保證處理所有服務故障。
 - **驗證：** 新流程在 GitHub 的 Chromium、Firefox、WebKit 測試與 Pages 部署均成功；此次首次部署即成功，尚未實際觸發重試分支。
 - **適用範圍：** 已確認上傳成功，但下游偶發無法立即讀取 artifact 的發布流程；有限重試可緩解短暫失敗，同時保留持續失敗的可見性。
+
+## 更新 GitHub Actions 執行環境
+
+- **觀察與做法：** GitHub 提示舊版 Actions 原使用 Node.js 20 並被強制轉至 Node.js 24。已查閱官方新版 action 定義，更新 checkout、setup-node、configure-pages、upload-pages-artifact 和 deploy-pages 的主要版本；部署後仍需確認新版實際執行結果。
+- **適用範圍：** 依賴官方 GitHub Actions 的自動測試與 Pages 發布；升級前檢查使用的輸入、輸出與新執行環境，升級後檢查真實工作流程。
+- **限制：** upload-pages-artifact 的新版仍使用內部的 upload-artifact v4，相關警告可能仍會出現，不能只憑版本號宣稱所有警告已消除。
