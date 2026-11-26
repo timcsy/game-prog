@@ -43,11 +43,13 @@
     },
   ];
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
+  let storageAvailable = null;
   function loadUnlockedMission() {
     try {
       const saved = Number(window.localStorage.getItem(PROGRESS_KEY));
       return Number.isInteger(saved) && saved >= 0 ? Math.min(saved, LEVELS.length - 1) : 0;
     } catch {
+      storageAvailable = false;
       return 0;
     }
   }
@@ -87,6 +89,7 @@
   const previousMissionButton = document.querySelector('#previous-mission');
   const nextUnlockedButton = document.querySelector('#next-unlocked');
   const missionPosition = document.querySelector('#mission-position');
+  const progressNote = document.querySelector('#progress-note');
   const topNote = document.querySelector('#top-note');
   const fieldLog = document.querySelector('#field-log');
   const missionTitle = document.querySelector('#mission-title');
@@ -250,12 +253,15 @@
     if (collected.size < level().seeds.length) {
       return { ok: false, message: '導航門還沒有足夠能量。先找回所有光種。' };
     }
-    highestUnlocked = Math.max(highestUnlocked, Math.min(levelIndex + 1, LEVELS.length - 1));
+    highestUnlocked = Math.max(highestUnlocked, loadUnlockedMission(), Math.min(levelIndex + 1, LEVELS.length - 1));
     try {
       window.localStorage.setItem(PROGRESS_KEY, String(highestUnlocked));
+      storageAvailable = true;
     } catch {
       // Progress still unlocks for the current session when storage is unavailable.
+      storageAvailable = false;
     }
+    updateProgressNote();
     updateMissionNavigation();
     gateOpen = true;
     drawWorld();
@@ -286,6 +292,14 @@
     missionPosition.textContent = `${current} / ${total}`;
     previousMissionButton.disabled = levelIndex <= 0;
     nextUnlockedButton.disabled = levelIndex >= highestUnlocked;
+  }
+
+  function updateProgressNote() {
+    progressNote.textContent = storageAvailable === false
+      ? '無法保存進度；關閉頁面後可能需要重來'
+      : storageAvailable === true
+        ? '已解鎖任務保存在此瀏覽器'
+        : '通關時會嘗試在此瀏覽器保存進度';
   }
 
   function parseProgram() {
@@ -557,6 +571,12 @@
   }
 
   runButton.addEventListener('click', runProgram);
+  window.addEventListener('storage', (event) => {
+    if (event.key !== PROGRESS_KEY) return;
+    highestUnlocked = Math.max(highestUnlocked, loadUnlockedMission());
+    updateMissionNavigation();
+    updateProgressNote();
+  });
   world.addEventListener('keydown', moveMapFocus);
   stepButton.addEventListener('click', singleStep);
   resetButton.addEventListener('click', resetMission);
@@ -580,6 +600,7 @@
   });
 
   showMissionDetails();
+  updateProgressNote();
   updateMissionNavigation();
   initMap();
   updateGutter();
