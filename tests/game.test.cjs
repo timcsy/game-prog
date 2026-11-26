@@ -192,3 +192,28 @@ test('JavaScript line comments can follow an instruction without changing its re
     assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
   } finally { await context.close(); }
 });
+
+test('mission switching preserves each in-page draft, including empty and inserted text', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '2'));
+    await page.reload();
+    await page.locator('#previous-mission').click();
+    await page.locator('#code').fill('');
+    await page.locator('#previous-mission').click();
+    await page.locator('#code').fill('// 我的第一關\nturnLeft();');
+    await page.locator('#next-unlocked').click();
+    assert.equal(await page.locator('#code').inputValue(), '');
+    await page.locator('[data-command="moveForward"]').click();
+    await page.locator('#reset').click();
+    await page.locator('#previous-mission').click();
+    assert.equal(await page.locator('#code').inputValue(), '// 我的第一關\nturnLeft();');
+    await page.locator('#next-unlocked').click();
+    assert.equal(await page.locator('#code').inputValue(), 'moveForward();');
+    await page.reload();
+    await page.locator('#previous-mission').click();
+    assert.match(await page.locator('#code').inputValue(), /repeat\(2, moveForward\)/);
+  } finally { await context.close(); }
+});

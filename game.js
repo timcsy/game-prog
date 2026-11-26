@@ -103,6 +103,7 @@
 
   let highestUnlocked = loadUnlockedMission();
   let levelIndex = highestUnlocked;
+  const missionDrafts = LEVELS.map((mission) => mission.starter);
   let rover = { ...level().start };
   let collected = new Set();
   let gateOpen = false;
@@ -495,6 +496,7 @@
 
   function onCodeChanged() {
     const wasInProgress = program && nextInstruction > 0 && nextInstruction < program.length;
+    missionDrafts[levelIndex] = code.value;
     program = null;
     nextInstruction = 0;
     updateGutter();
@@ -511,7 +513,7 @@
     missionLead.textContent = level().lead;
     worldTitle.textContent = level().area;
     hintCopy.innerHTML = level().hint;
-    code.value = level().starter;
+    code.value = missionDrafts[levelIndex];
     repeatCommand.hidden = levelIndex < 1;
     lightCondition.hidden = levelIndex < 2;
     wallCondition.hidden = levelIndex < 2;
