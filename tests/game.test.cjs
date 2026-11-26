@@ -274,3 +274,26 @@ test('execution highlights and reveals the current source line, then clears on r
     assert.equal(await page.locator('#line-gutter .active-line').count(), 0);
   } finally { await context.close(); }
 });
+
+test('condition feedback identifies true and false sensors, including failed actions', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '2'));
+    await page.reload();
+    await page.locator('#code').fill('if (lightIsPresent()) collectLight();\nmoveForward();\nmoveForward();\nif (lightIsPresent()) collectLight();\nif (pathAheadIsBlocked()) turnLeft();\nif (pathAheadIsBlocked()) turnRight();');
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件不成立（lightIsPresent\(\)）.*略過/);
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件成立（lightIsPresent\(\)）.*光種/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件成立（pathAheadIsBlocked\(\)）.*左轉/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件不成立（pathAheadIsBlocked\(\)）.*略過/);
+    await page.locator('#code').fill('moveForward();\nmoveForward();\nif (pathAheadIsBlocked()) openGate();');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件成立（pathAheadIsBlocked\(\)）.*還沒抵達導航門/);
+    assert.equal(await page.locator('#win-card').isHidden(), true);
+  } finally { await context.close(); }
+});

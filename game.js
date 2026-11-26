@@ -319,7 +319,7 @@
         const action = COMMANDS.get(conditional[2]);
         if (!condition) throw new Error(`第 ${index + 1} 行：還沒有「${conditional[1]}」這個感測器。`);
         if (!action) throw new Error(`第 ${index + 1} 行：if 後面請放一個已解鎖的行動。`);
-        actions.push({ action, condition, name: `if (${conditional[1]}()) ${conditional[2]}()`, line: index + 1 });
+        actions.push({ action, condition, conditionName: conditional[1], name: `if (${conditional[1]}()) ${conditional[2]}()`, line: index + 1 });
         if (actions.length > 50) throw new Error('這次行動太長了，先試試 50 步以內。');
         continue;
       }
@@ -402,18 +402,19 @@
     const actionName = instruction.name.startsWith('if (') ? instruction.name : `${instruction.name}()`;
     help.textContent = `第 ${instruction.line} 行 · ${actionName}`;
     if (instruction.condition && !instruction.condition()) {
-      setStatus(`第 ${instruction.line} 行：條件不成立，小芽略過了這個行動。`);
+      setStatus(`第 ${instruction.line} 行：條件不成立（${instruction.conditionName}()），小芽略過了這個行動。`);
       return { done: nextInstruction >= program.length, skipped: true };
     }
+    const conditionFeedback = instruction.condition ? `條件成立（${instruction.conditionName}()）。` : '';
     const result = instruction.action();
     if (!result.ok) {
-      setStatus(`第 ${instruction.line} 行：${result.message}`, 'error');
+      setStatus(`第 ${instruction.line} 行：${conditionFeedback}${result.message}`, 'error');
       showToast(result.message, 'error');
       hasActionError = true;
       nextInstruction = program.length;
       return { done: true, error: true };
     }
-    setStatus(`第 ${instruction.line} 行：${status.textContent}`);
+    setStatus(`第 ${instruction.line} 行：${conditionFeedback}${status.textContent}`);
     if (result.won) return { done: true, won: true };
     return { done: nextInstruction >= program.length };
   }
