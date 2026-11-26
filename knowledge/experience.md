@@ -146,6 +146,12 @@
 ## 跨引擎持續整合
 
 - **完成：** 將瀏覽器回歸改為可選 Chromium、Firefox 或 WebKit，並在 GitHub Actions 分別執行後才發布。Chromium 專用的輔助科技樹檢查只在 Chromium 執行；Firefox 不支援 Playwright 行動模擬，因此略過觸控模擬。
-- **驗證：** 本機 Chrome 與 Playwright WebKit 各完成八項回歸；公開網站也實際完成第一關、解鎖並重載第二關。新的 GitHub 跨引擎流程仍需以推送後的執行結果確認。
+- **驗證：** 本機 Chrome 與 Playwright WebKit 各完成八項回歸；GitHub Linux 的 Chromium、Firefox 和 WebKit 測試均通過。公開網站也實際完成第一關、解鎖並重載第二關。
 - **適用範圍：** 需要兼顧多種瀏覽器引擎的靜態遊戲；依引擎能力明確標示未執行的項目，避免把略過當成通過。
-- **限制：** 自動化引擎不代表所有瀏覽器版本或實體裝置。Firefox 在本機 Windows 的 Playwright 安裝無法啟動，須以 GitHub Linux 執行結果確認；發布測試需額外下載瀏覽器與系統套件。
+- **限制：** 自動化引擎不代表所有瀏覽器版本或實體裝置。Firefox 在本機 Windows 的 Playwright 安裝無法啟動，本次改以 GitHub Linux 驗證；發布測試需額外下載瀏覽器與系統套件。
+
+## Pages artifact 的短暫不可見
+
+- **觀察：** GitHub Linux 的 Chromium、Firefox 和 WebKit 測試均通過，但兩次 Pages 部署在上傳步驟成功後立即回報找不到 `github-pages` artifact；稍後工作紀錄中可看到該 artifact。原因尚未確認，可能是服務端時序或暫時性問題。
+- **做法：** 部署失敗時等待 15 秒重試一次；第二次仍失敗就保留失敗狀態。此修正需觀察後續 GitHub Actions 的實際執行，不能保證處理所有服務故障。
+- **適用範圍：** 已確認上傳成功，但下游偶發無法立即讀取 artifact 的發布流程；有限重試可緩解短暫失敗，同時保留持續失敗的可見性。
