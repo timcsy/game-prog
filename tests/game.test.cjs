@@ -153,3 +153,20 @@ test('map exposes its rows and cells and distinguishes a wall from the map edge'
     assert.match(await page.locator('#status').textContent(), /岩壁/);
   } finally { await context.close(); }
 });
+
+test('touch players can insert and step through commands on a narrow screen', async () => {
+  const context = await browser.newContext({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill('');
+    for (const name of ['moveForward', 'moveForward', 'collectLight']) {
+      const button = page.locator(`[data-command="${name}"]`);
+      assert.ok((await button.boundingBox()).height >= 44);
+      await button.tap();
+    }
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').tap();
+    assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
+    assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /光種，已收集/);
+  } finally { await context.close(); }
+});
