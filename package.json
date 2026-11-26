@@ -1,0 +1,10 @@
+{
+  "name": "light-seed-game",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/game.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
