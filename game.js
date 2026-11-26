@@ -309,8 +309,8 @@
     const lines = code.value.split(/\r?\n/);
     const actions = [];
     for (let index = 0; index < lines.length; index += 1) {
-      const source = lines[index].trim();
-      if (!source || source.startsWith('//')) continue;
+      const source = lines[index].split('//', 1)[0].trim();
+      if (!source) continue;
       const conditional = source.match(/^if\s*\(\s*([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\)\s*([A-Za-z_$][\w$]*)\s*\(\s*\)\s*;?$/);
       if (conditional) {
         if (levelIndex < 2) throw new Error(`第 ${index + 1} 行：小芽還沒學會 if 判斷。先完成感應與選擇任務，再試這種寫法。`);

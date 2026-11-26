@@ -170,3 +170,20 @@ test('touch players can insert and step through commands on a narrow screen', as
     assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /光種，已收集/);
   } finally { await context.close(); }
 });
+
+test('JavaScript line comments can follow an instruction without changing its result', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill('moveForward(); // 第一步\nmoveForward(); // 到光種\ncollectLight(); // 拾取');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
+    assert.match(await page.locator('#status').textContent(), /第 3 行/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '2'));
+    await page.reload();
+    await page.locator('#code').fill('if (lightIsPresent()) collectLight(); // 起點沒有\nrepeat(2, moveForward); // 前進兩步\nif (lightIsPresent()) collectLight(); // 到達光種');
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
+  } finally { await context.close(); }
+});
