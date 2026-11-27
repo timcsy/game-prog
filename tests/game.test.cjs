@@ -36,6 +36,7 @@ const solutions = [
   ['moveForward();\nmoveForward();\ncollectLight();\nturnLeft();\nmoveForward();\nmoveForward();\ncollectLight();\nturnRight();\nmoveForward();\nmoveForward();\nmoveForward();\nmoveForward();\nopenGate();', 13],
   ['repeat(2, moveForward);\ncollectLight();\nrepeat(2, moveForward);\ncollectLight();\nrepeat(2, moveForward);\nopenGate();', 9],
   ['if (lightIsPresent()) collectLight();\nrepeat(2, moveForward);\nif (lightIsPresent()) collectLight();\nif (pathAheadIsBlocked()) turnLeft();\nrepeat(2, moveForward);\nif (lightIsPresent()) collectLight();\nturnRight();\nrepeat(4, moveForward);\nopenGate();', 14],
+  ['repeat(2, moveForward);\ncollectLight();\nturnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\ncollectLight();\nrepeat(2, moveForward);\nopenGate();', 13],
 ];
 
 async function complete(page, index) {
@@ -45,7 +46,7 @@ async function complete(page, index) {
   assert.equal(await page.locator('#win-card').isVisible(), true);
 }
 
-test('three missions unlock, survive reload, and return focus on replay', async () => {
+test('four missions unlock, survive reload, and return focus on replay', async () => {
   const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
   try {
     const page = await context.newPage();
@@ -56,10 +57,12 @@ test('three missions unlock, survive reload, and return focus on replay', async 
     assert.equal(await page.evaluate(() => document.activeElement.id), 'next-mission');
     await page.locator('#next-mission').click();
     await page.reload();
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
     await complete(page, 1);
     await page.locator('#next-mission').click();
     await complete(page, 2);
+    await page.locator('#next-mission').click();
+    await complete(page, 3);
     assert.equal(await page.evaluate(() => document.activeElement.id), 'replay-win');
     await page.locator('#replay-win').click();
     assert.equal(await page.evaluate(() => document.activeElement.id), 'code');
@@ -134,7 +137,7 @@ test('invalid input and unavailable storage keep the game usable', async () => {
     assert.match(await page.locator('#coordinates').textContent(), /X 01.*Y 05/);
     await complete(page, 0);
     await page.locator('#next-mission').click();
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
   } finally { await context.close(); }
 });
 
@@ -281,6 +284,41 @@ test('optional echoes reward exploration and reset with each attempt', async () 
     await page.locator('#code').fill('turnLeft();\nrepeat(2, moveForward);');
     for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
     assert.match(await page.locator('#echo-log').textContent(), /回家的路/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '3'));
+    await page.reload();
+    await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#echo-log').textContent(), /光閘曾守護/);
+  } finally { await context.close(); }
+});
+
+test('a switch opens the barrier and the sensor observes both states', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '3'));
+    await page.reload();
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /光閘.*關閉/);
+    assert.match(await page.locator('.switch-tile').getAttribute('aria-label'), /能量開關.*走上可啟動/);
+    await page.locator('#code').fill('turnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\nmoveForward();');
+    for (let i = 0; i < 7; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /光閘擋住了去路/);
+    assert.match(await page.locator('#coordinates').textContent(), /X 03.*Y 03/);
+
+    await page.locator('#code').fill('turnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\nif (pathAheadIsBlocked()) turnRight();\nmoveForward();\nturnLeft();\nturnLeft();\nmoveForward();\nturnRight();\nif (pathAheadIsBlocked()) turnRight();\nmoveForward();');
+    for (let i = 0; i < 7; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件成立.*pathAheadIsBlocked/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /能量開關.*光閘打開/);
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /已打開/);
+    assert.match(await page.locator('.switch-tile').getAttribute('aria-label'), /已啟動/);
+    for (let i = 0; i < 5; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件不成立.*pathAheadIsBlocked/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#coordinates').textContent(), /X 04.*Y 03/);
+    await page.locator('#reset').click();
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /關閉/);
   } finally { await context.close(); }
 });
 
@@ -339,7 +377,7 @@ test('switching missions interrupts execution without losing the edited program'
     await page.locator('#run').click();
     await page.locator('#next-unlocked').click();
     await page.waitForTimeout(600);
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
     assert.match(await page.locator('#coordinates').textContent(), /X 01.*Y 05/);
     assert.equal(await page.locator('#run').isEnabled(), true);
     await page.locator('#previous-mission').click();
@@ -358,7 +396,7 @@ test('a storage write failure still permits in-session progression', async () =>
     await complete(page, 0);
     assert.match(await page.locator('#progress-note').textContent(), /無法保存/);
     await page.locator('#next-mission').click();
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 03/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
   } finally { await context.close(); }
 });
 

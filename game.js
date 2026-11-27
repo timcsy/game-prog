@@ -44,6 +44,22 @@
       hint: '<code>if (lightIsPresent()) collectLight();</code> 會先檢查小芽所在格有沒有光種；沒有時略過拾取，有時才執行。前方有岩壁時也可以用感測器決定要不要轉彎。',
       instruction: '先檢查條件，再決定要不要執行後面的行動。',
     },
+    {
+      name: '喚醒光閘',
+      title: '路被封住了。<br /><em>讓星球替你開路。</em>',
+      lead: '踩上 ◉ 開關，打開紫色光閘，再找光種與導航門。',
+      area: '沉睡星球 · 星光遺跡',
+      start: { x: 0, y: 4, direction: 1 },
+      seeds: [{ x: 2, y: 4 }, { x: 4, y: 2 }],
+      gate: { x: 6, y: 2 },
+      echo: { x: 1, y: 3, story: '光閘曾守護星球的花園，等待有人重新點亮道路。' },
+      switchTile: { x: 2, y: 3 },
+      barrier: { x: 3, y: 2 },
+      walls: new Set(['3,0', '3,1', '3,3', '3,4', '3,5', '1,1', '4,4', '5,4', '5,1']),
+      starter: '// 踏上 ◉ 能量開關，就能打開光閘\nrepeat(2, moveForward);\ncollectLight();\n\n// 找到開關，再帶小芽前往導航門',
+      hint: '光閘會擋住小芽。先走到 ◉ 開關所在的格子，光閘就會打開；<code>pathAheadIsBlocked()</code> 也能感測關閉的光閘。',
+      instruction: '找出開關和光閘，安排一條能取回光種的路。',
+    },
   ];
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
   let storageAvailable = null;
@@ -112,6 +128,7 @@
   let rover = { ...level().start };
   let collected = new Set();
   let echoFound = false;
+  let switchActive = false;
   let gateOpen = false;
   let program = null;
   let nextInstruction = 0;
@@ -138,6 +155,8 @@
         const isSeed = level().seeds.some((seed) => seed.x === x && seed.y === y);
         const isGate = level().gate.x === x && level().gate.y === y;
         const isEcho = level().echo.x === x && level().echo.y === y;
+        const isSwitch = level().switchTile?.x === x && level().switchTile?.y === y;
+        const isBarrier = level().barrier?.x === x && level().barrier?.y === y;
         if (isWall) {
           tile.classList.add('wall');
         } else {
@@ -145,6 +164,8 @@
           if (isSeed) tile.classList.add('seed');
           if (isGate) tile.classList.add('gate');
           if (isEcho) tile.classList.add('echo');
+          if (isSwitch) tile.classList.add('switch-tile');
+          if (isBarrier) tile.classList.add('barrier');
         }
         row.append(tile);
       }
@@ -166,6 +187,8 @@
       if (seedIndex !== -1) landmarks.push(`光種${collected.has(seedIndex) ? '，已收集' : ''}`);
       if (x === level().gate.x && y === level().gate.y) landmarks.push(`導航門${gateOpen ? '，已啟動' : ''}`);
       if (x === level().echo.x && y === level().echo.y) landmarks.push(`星球回聲${echoFound ? '，已發現' : '，走過可發現'}`);
+      if (x === level().switchTile?.x && y === level().switchTile?.y) landmarks.push(`能量開關${switchActive ? '，已啟動' : '，走上可啟動'}`);
+      if (x === level().barrier?.x && y === level().barrier?.y) landmarks.push(`光閘${switchActive ? '，已打開' : '，關閉中'}`);
       if (x === rover.x && y === rover.y) landmarks.unshift(`小芽，面向${DIRECTIONS[rover.direction].name}方`);
       tile.setAttribute('aria-label', `X ${x + 1}，Y ${y + 1}，${landmarks.join('，') || '可通行'}`);
     });
@@ -176,6 +199,8 @@
       tile.classList.toggle('collected', collected.has(seed));
     });
     world.querySelector('.echo')?.classList.toggle('found', echoFound);
+    world.querySelector('.switch-tile')?.classList.toggle('active', switchActive);
+    world.querySelector('.barrier')?.classList.toggle('open', switchActive);
     echoLog.hidden = !echoFound;
     echoLog.textContent = echoFound ? `◇ 這次發現的星球回聲：${level().echo.story}` : '';
     const gateTile = world.querySelector(`[data-x="${level().gate.x}"][data-y="${level().gate.y}"]`);
@@ -231,6 +256,10 @@
     return world.querySelector(`[data-x="${x}"][data-y="${y}"]`);
   }
 
+  function closedBarrierAt(x, y) {
+    return !switchActive && level().barrier?.x === x && level().barrier?.y === y;
+  }
+
   function moveForward() {
     const vector = DIRECTIONS[rover.direction];
     const x = rover.x + vector.x;
@@ -242,14 +271,20 @@
     if (level().walls.has(`${x},${y}`)) {
       return { ok: false, message: '岩壁擋住了去路。改變方向，或看看地圖上的空隙。' };
     }
+    if (closedBarrierAt(x, y)) {
+      return { ok: false, message: '光閘擋住了去路。先走上能量開關，讓光閘打開。' };
+    }
     const previousPosition = { x: rover.x, y: rover.y };
     rover.x = x;
     rover.y = y;
     const discoveredEcho = !echoFound && rover.x === level().echo.x && rover.y === level().echo.y;
     if (discoveredEcho) echoFound = true;
+    const activatedSwitch = !switchActive && rover.x === level().switchTile?.x && rover.y === level().switchTile?.y;
+    if (activatedSwitch) switchActive = true;
     drawWorld(previousPosition);
-    setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。${discoveredEcho ? ` 發現星球回聲：${level().echo.story}` : ''}`);
+    setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。${discoveredEcho ? ` 發現星球回聲：${level().echo.story}` : ''}${activatedSwitch ? ' 踩上能量開關，光閘打開了！' : ''}`);
     if (discoveredEcho) showToast('發現星球回聲 ◇');
+    if (activatedSwitch) showToast('光閘已打開 ◉');
     return { ok: true };
   }
 
@@ -320,7 +355,7 @@
     const vector = DIRECTIONS[rover.direction];
     const x = rover.x + vector.x;
     const y = rover.y + vector.y;
-    return !tileAt(x, y) || level().walls.has(`${x},${y}`);
+    return !tileAt(x, y) || level().walls.has(`${x},${y}`) || closedBarrierAt(x, y);
   }
 
   function updateMissionNavigation() {
@@ -388,6 +423,7 @@
     rover = { ...level().start };
     collected = new Set();
     echoFound = false;
+    switchActive = false;
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -508,6 +544,7 @@
     rover = { ...level().start };
     collected = new Set();
     echoFound = false;
+    switchActive = false;
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -576,6 +613,7 @@
     rover = { ...level().start };
     collected = new Set();
     echoFound = false;
+    switchActive = false;
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
