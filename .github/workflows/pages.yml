@@ -10,10 +10,6 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -34,6 +30,9 @@ jobs:
       - run: npm test
   deploy:
     needs: test
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
@@ -41,14 +40,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Check whether this commit is still main
+        id: head
+        run: node scripts/check-main.cjs
       - name: Configure Pages
+        if: steps.head.outputs.current == 'true'
         uses: actions/configure-pages@v6
       - name: Upload site artifact
+        if: steps.head.outputs.current == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: .
       - name: Deploy to GitHub Pages
         id: deployment
+        if: steps.head.outputs.current == 'true'
         uses: actions/deploy-pages@v5
         continue-on-error: true
       - name: Wait before retrying deployment

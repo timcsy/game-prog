@@ -115,7 +115,8 @@ test('keyboard exploration and edited programs have consistent state', async () 
     await page.locator('.rover-tile').focus();
     await page.keyboard.press('ArrowUp');
     await page.keyboard.press('Tab');
-    assert.equal(await page.evaluate(() => document.activeElement.id), 'code');
+    const active = await page.evaluate(() => ({ id: document.activeElement.id, tag: document.activeElement.tagName, className: document.activeElement.className }));
+    assert.equal(active.id, 'code', `Unexpected focus after leaving the map: ${JSON.stringify(active)}`);
     await page.keyboard.press('Shift+Tab');
     assert.match(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), /X 1，Y 4/);
     await page.locator('#code').fill('moveForward();\nmoveForward();\ncollectLight();');
