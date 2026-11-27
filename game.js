@@ -84,6 +84,7 @@
     },
   ];
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
+  const COMPLETED_KEY = 'light-seed-game-completed-mission';
   const ECHO_KEY = 'light-seed-game-discovered-echoes';
   let storageAvailable = null;
   let echoStorageAvailable = null;
@@ -94,6 +95,17 @@
     } catch {
       storageAvailable = false;
       return 0;
+    }
+  }
+  function loadCompletedMission() {
+    try {
+      const raw = window.localStorage.getItem(COMPLETED_KEY);
+      if (raw === null || raw.trim() === '') return -1;
+      const saved = Number(raw);
+      return Number.isInteger(saved) && saved >= 0 ? Math.min(saved, LEVELS.length - 1) : -1;
+    } catch {
+      storageAvailable = false;
+      return -1;
     }
   }
   function readSavedEchoes() {
@@ -165,6 +177,8 @@
   const runLabel = runButton.innerHTML;
 
   let highestUnlocked = loadUnlockedMission();
+  let highestCompleted = Math.max(loadCompletedMission(), highestUnlocked - 1);
+  highestUnlocked = Math.max(highestUnlocked, Math.min(highestCompleted + 1, LEVELS.length - 1));
   const knownEchoes = loadEchoes();
   let levelIndex = highestUnlocked;
   const missionDrafts = LEVELS.map((mission) => mission.starter);
@@ -420,9 +434,12 @@
     if (collected.size < level().seeds.length) {
       return { ok: false, message: '導航門還沒有足夠能量。先找回所有光種。' };
     }
-    highestUnlocked = Math.max(highestUnlocked, loadUnlockedMission(), Math.min(levelIndex + 1, LEVELS.length - 1));
+    const savedUnlocked = loadUnlockedMission();
+    highestCompleted = Math.max(highestCompleted, loadCompletedMission(), savedUnlocked - 1, levelIndex);
+    highestUnlocked = Math.max(highestUnlocked, savedUnlocked, Math.min(highestCompleted + 1, LEVELS.length - 1));
     try {
       window.localStorage.setItem(PROGRESS_KEY, String(highestUnlocked));
+      window.localStorage.setItem(COMPLETED_KEY, String(highestCompleted));
       storageAvailable = true;
     } catch {
       // Progress still unlocks for the current session when storage is unavailable.
@@ -822,8 +839,10 @@
 
   runButton.addEventListener('click', runProgram);
   window.addEventListener('storage', (event) => {
-    if (event.key === PROGRESS_KEY) {
-      highestUnlocked = Math.max(highestUnlocked, loadUnlockedMission());
+    if (event.key === PROGRESS_KEY || event.key === COMPLETED_KEY) {
+      const savedUnlocked = loadUnlockedMission();
+      highestCompleted = Math.max(highestCompleted, loadCompletedMission(), savedUnlocked - 1);
+      highestUnlocked = Math.max(highestUnlocked, savedUnlocked, Math.min(highestCompleted + 1, LEVELS.length - 1));
       updateMissionNavigation();
       updateProgressNote();
     } else if (event.key === ECHO_KEY && event.newValue !== null) {

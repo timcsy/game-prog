@@ -71,6 +71,7 @@ test('five missions unlock, survive reload, and return focus on replay', async (
     await complete(page, 3);
     await page.locator('#next-mission').click();
     await complete(page, 4);
+    assert.equal(await page.evaluate(() => localStorage.getItem('light-seed-game-completed-mission')), '4');
     assert.equal(await page.evaluate(() => document.activeElement.id), 'replay-win');
     await page.locator('#replay-win').click();
     assert.equal(await page.evaluate(() => document.activeElement.id), 'code');
@@ -161,6 +162,41 @@ test('other tabs cannot overwrite newer unlocked progress', async () => {
     await first.waitForFunction(() => !document.querySelector('#next-unlocked').disabled);
     await complete(first, 0);
     assert.equal(await first.evaluate(() => localStorage.getItem('light-seed-game-unlocked-mission')), '2');
+  } finally { await context.close(); }
+});
+
+test('a completed last mission unlocks newly added content without replay', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => {
+      localStorage.setItem('light-seed-game-unlocked-mission', '3');
+      localStorage.setItem('light-seed-game-completed-mission', '3');
+    });
+    await page.reload();
+    assert.match(await page.locator('#mission-position').textContent(), /05 \/ 05/);
+    await page.evaluate(() => localStorage.removeItem('light-seed-game-completed-mission'));
+    await page.reload();
+    assert.match(await page.locator('#mission-position').textContent(), /04 \/ 05/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-completed-mission', 'not-a-number'));
+    await page.reload();
+    assert.match(await page.locator('#mission-position').textContent(), /04 \/ 05/);
+  } finally { await context.close(); }
+});
+
+test('completed progress from another tab is preserved by an older attempt', async () => {
+  const context = await browser.newContext();
+  try {
+    const first = await context.newPage();
+    const second = await context.newPage();
+    await first.goto(url);
+    await second.goto(url);
+    await second.evaluate(() => localStorage.setItem('light-seed-game-completed-mission', '3'));
+    await first.waitForFunction(() => !document.querySelector('#next-unlocked').disabled);
+    await complete(first, 0);
+    assert.equal(await first.evaluate(() => localStorage.getItem('light-seed-game-completed-mission')), '3');
+    assert.equal(await first.evaluate(() => localStorage.getItem('light-seed-game-unlocked-mission')), '4');
   } finally { await context.close(); }
 });
 
@@ -581,6 +617,25 @@ test('a storage write failure still permits in-session progression', async () =>
     await complete(page, 0);
     assert.match(await page.locator('#progress-note').textContent(), /無法保存/);
     await page.locator('#next-mission').click();
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 05/);
+  } finally { await context.close(); }
+});
+
+test('a completion-record write failure warns even if unlocked progress was saved', async () => {
+  const context = await browser.newContext();
+  try {
+    await context.addInitScript(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === 'light-seed-game-completed-mission') throw new DOMException('Full', 'QuotaExceededError');
+        return original.call(this, key, value);
+      };
+    });
+    const page = await context.newPage();
+    await page.goto(url);
+    await complete(page, 0);
+    assert.match(await page.locator('#progress-note').textContent(), /無法保存進度/);
+    await page.reload();
     assert.match(await page.locator('#mission-position').textContent(), /02 \/ 05/);
   } finally { await context.close(); }
 });
