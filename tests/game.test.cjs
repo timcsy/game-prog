@@ -174,6 +174,30 @@ test('narrow map fits and reset cancels a running program', async () => {
   } finally { await context.close(); }
 });
 
+test('players can pause, step, and resume a running program', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill(Array(6).fill('turnRight();').join('\n'));
+    await page.locator('#run').click();
+    assert.match(await page.locator('#run').textContent(), /暫停行動/);
+    await page.locator('#run').click();
+    assert.match(await page.locator('#status').textContent(), /已暫停/);
+    assert.match(await page.locator('#run').textContent(), /繼續執行/);
+    assert.equal(await page.locator('#step').isEnabled(), true);
+    const before = await page.locator('.rover-tile').getAttribute('aria-label');
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator('.rover-tile').getAttribute('aria-label'), before);
+    await page.locator('#step').click();
+    assert.notEqual(await page.locator('.rover-tile').getAttribute('aria-label'), before);
+    await page.locator('#run').click();
+    await page.waitForFunction(() => document.querySelector('#status').textContent.includes('程式跑完了'));
+    assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /面向西方/);
+    assert.match(await page.locator('#run').textContent(), /執行程式/);
+  } finally { await context.close(); }
+});
+
 test('the whole map fits its scene at desktop and phone sizes', async () => {
   const context = await browser.newContext();
   try {

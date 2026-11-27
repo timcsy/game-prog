@@ -502,14 +502,30 @@
   function setBusy(value) {
     busy = value;
     code.readOnly = value;
-    runButton.disabled = value;
     stepButton.disabled = value;
     document.querySelectorAll('.command').forEach((button) => { button.disabled = value; });
-    runButton.innerHTML = value ? '<span aria-hidden="true">◌</span> 小芽行動中…' : runLabel;
+    updateRunButton();
+  }
+
+  function updateRunButton() {
+    const canResume = program && nextInstruction > 0 && nextInstruction < program.length;
+    runButton.classList.toggle('is-pausing', busy);
+    runButton.innerHTML = busy
+      ? '<span aria-hidden="true">Ⅱ</span> 暫停行動'
+      : canResume ? '<span aria-hidden="true">▶</span> 繼續執行' : runLabel;
+  }
+
+  function pauseProgram() {
+    runId += 1;
+    setBusy(false);
+    setStatus(`${status.textContent} 已暫停；可以單步或繼續執行。`);
   }
 
   async function runProgram() {
-    if (busy) return;
+    if (busy) {
+      pauseProgram();
+      return;
+    }
     runId += 1;
     if (!program || nextInstruction >= program.length) {
       if (!prepareProgram()) return;
@@ -534,6 +550,7 @@
     }
     const result = executeNext();
     if (result.done) finishProgram();
+    updateRunButton();
   }
 
   function resetMission() {
@@ -541,6 +558,7 @@
     setBusy(false);
     program = null;
     nextInstruction = 0;
+    updateRunButton();
     rover = { ...level().start };
     collected = new Set();
     echoFound = false;
@@ -581,6 +599,7 @@
     missionDrafts[levelIndex] = code.value;
     program = null;
     nextInstruction = 0;
+    updateRunButton();
     updateGutter();
     help.classList.remove('error-text');
     help.textContent = level().instruction;
@@ -610,6 +629,7 @@
     levelIndex = index;
     program = null;
     nextInstruction = 0;
+    updateRunButton();
     rover = { ...level().start };
     collected = new Set();
     echoFound = false;
