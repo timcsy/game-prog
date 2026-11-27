@@ -191,6 +191,8 @@
   const journeyDialog = document.querySelector('#journey-dialog');
   const journeyMissions = document.querySelector('#journey-missions');
   const openJourneyButton = document.querySelector('#open-journey');
+  const soundToggle = document.querySelector('#sound-toggle');
+  const soundFeedback = document.querySelector('#sound-feedback');
   const closeJourneyButton = document.querySelector('#close-journey');
   const hintCopy = document.querySelector('#hint-copy');
   const repeatCommand = document.querySelector('#repeat-command');
@@ -218,6 +220,95 @@
   let hasActionError = false;
   let runId = 0;
   let toastTimer;
+  let soundEnabled = false;
+  let audioContext = null;
+  const sounding = new Set();
+
+  const soundPatterns = {
+    move: [[420, 0, .06]], turn: [[330, 0, .05]], push: [[260, 0, .1]],
+    collect: [[660, 0, .1], [880, .1, .15]], echo: [[490, 0, .12], [740, .12, .18]],
+    switch: [[440, 0, .08], [660, .08, .16]], skip: [[300, 0, .05]],
+    error: [[220, 0, .12], [180, .12, .12]], undo: [[500, 0, .08], [380, .08, .1]],
+    win: [[520, 0, .1], [660, .1, .1], [880, .2, .24]],
+  };
+
+  function updateSoundButton() {
+    const label = soundEnabled ? '關閉遊戲音效' : '開啟遊戲音效';
+    soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+    soundToggle.setAttribute('aria-label', label);
+    soundToggle.setAttribute('aria-pressed', String(soundEnabled));
+    soundToggle.title = label;
+  }
+
+  function announceSound(message) {
+    soundFeedback.textContent = message;
+    showToast(message);
+  }
+
+  function stopSounds() {
+    sounding.forEach((oscillator) => {
+      try { oscillator.stop(); } catch { /* It may already have ended. */ }
+    });
+    sounding.clear();
+  }
+
+  function playSound(kind) {
+    if (!soundEnabled || !audioContext || audioContext.state !== 'running') return;
+    try {
+      const start = audioContext.currentTime;
+      for (const [frequency, delay, duration] of soundPatterns[kind] ?? []) {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, start + delay);
+        gain.gain.setValueAtTime(.0001, start + delay);
+        gain.gain.exponentialRampToValueAtTime(.035, start + delay + .01);
+        gain.gain.exponentialRampToValueAtTime(.0001, start + delay + duration);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        sounding.add(oscillator);
+        oscillator.onended = () => sounding.delete(oscillator);
+        oscillator.start(start + delay);
+        oscillator.stop(start + delay + duration);
+      }
+    } catch {
+      stopSounds();
+      soundEnabled = false;
+      updateSoundButton();
+      announceSound('音效暫時無法播放。');
+    }
+  }
+
+  async function toggleSound() {
+    if (soundEnabled) {
+      soundEnabled = false;
+      stopSounds();
+      updateSoundButton();
+      announceSound('遊戲音效已關閉。');
+      return;
+    }
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (!Audio) {
+      announceSound('目前瀏覽器無法使用音效，仍可繼續遊玩。');
+      return;
+    }
+    soundToggle.disabled = true;
+    try {
+      audioContext ??= new Audio();
+      await audioContext.resume();
+      if (audioContext.state !== 'running') throw new Error('Audio is not running');
+      soundEnabled = true;
+      updateSoundButton();
+      announceSound('遊戲音效已開啟，可隨時關閉。');
+      playSound('collect');
+    } catch {
+      soundEnabled = false;
+      updateSoundButton();
+      announceSound('目前無法開啟音效，仍可繼續遊玩。');
+    } finally {
+      soundToggle.disabled = false;
+    }
+  }
 
   function initMap() {
     world.replaceChildren();
@@ -503,21 +594,21 @@
     if (discoveredEcho) showToast('發現星球回聲 ◇');
     if (activatedSwitch) showToast(`光閘 ${activatedSwitch.id} 已打開 ◉`);
     if (pressureFeedback) showToast(pressureIsActive ? '光晶啟動了底座 ◉' : '光晶離開底座');
-    return { ok: true };
+    return { ok: true, cue: pressureFeedback || activatedSwitch ? 'switch' : discoveredEcho ? 'echo' : pushedCrate ? 'push' : 'move' };
   }
 
   function turnLeft() {
     rover.direction = (rover.direction + 3) % 4;
     drawWorld();
     setStatus(`小芽左轉，現在面向${DIRECTIONS[rover.direction].name}方。`);
-    return { ok: true };
+    return { ok: true, cue: 'turn' };
   }
 
   function turnRight() {
     rover.direction = (rover.direction + 1) % 4;
     drawWorld();
     setStatus(`小芽右轉，現在面向${DIRECTIONS[rover.direction].name}方。`);
-    return { ok: true };
+    return { ok: true, cue: 'turn' };
   }
 
   function collectLight() {
@@ -532,7 +623,7 @@
     drawWorld();
     setStatus(`光種收進背包。還有 ${level().seeds.length - collected.size} 顆等著你。`);
     showToast('光種已收集 ✦');
-    return { ok: true };
+    return { ok: true, cue: 'collect' };
   }
 
   function openGate() {
@@ -566,7 +657,7 @@
     setStatus('導航門亮起來了！你幫小芽接通返航訊號。');
     toast.classList.remove('show');
     (nextMissionButton.hidden ? document.querySelector('#replay-win') : nextMissionButton).focus();
-    return { ok: true, won: true };
+    return { ok: true, won: true, cue: 'win' };
   }
 
   function lightIsPresent() {
@@ -677,6 +768,7 @@
       help.textContent = error.message;
       help.classList.add('error-text');
       showToast(error.message, 'error');
+      playSound('error');
       return false;
     }
   }
@@ -716,6 +808,7 @@
     help.textContent = `${location} · ${actionName}`;
     if (instruction.condition && !instruction.condition()) {
       setStatus(`${location}：條件不成立（${instruction.conditionName}()），小芽略過了這個行動。`);
+      playSound('skip');
       return { done: nextInstruction >= program.length, skipped: true };
     }
     const conditionFeedback = instruction.condition ? `條件成立（${instruction.conditionName}()）。` : '';
@@ -723,11 +816,13 @@
     if (!result.ok) {
       setStatus(`${location}：${conditionFeedback}${result.message}`, 'error');
       showToast(result.message, 'error');
+      playSound('error');
       hasActionError = true;
       nextInstruction = program.length;
       return { done: true, error: true };
     }
     setStatus(`${location}：${conditionFeedback}${status.textContent}`);
+    playSound(result.cue);
     if (result.won) {
       // A successful gate ends the attempt even if source lines remain.
       nextInstruction = program.length;
@@ -816,6 +911,7 @@
     help.classList.remove('error-text');
     help.textContent = `已退回；下一步從第 ${program[nextInstruction].line} 行繼續。`;
     setStatus(`已退回 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。回聲和解鎖進度保留。`);
+    playSound('undo');
     updateRunButton();
   }
 
@@ -1008,6 +1104,7 @@
   });
   world.addEventListener('keydown', moveMapFocus);
   openJourneyButton.addEventListener('click', openJourney);
+  soundToggle.addEventListener('click', toggleSound);
   closeJourneyButton.addEventListener('click', closeJourney);
   journeyDialog.addEventListener('cancel', (event) => {
     event.preventDefault();

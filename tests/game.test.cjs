@@ -247,6 +247,70 @@ test('players can pause, step, and resume a running program', async () => {
   } finally { await context.close(); }
 });
 
+test('sound is opt-in, can be turned off, and leaves action feedback intact', async () => {
+  const context = await browser.newContext();
+  try {
+    await context.addInitScript(() => {
+      window.soundStarts = 0;
+      window.soundStops = 0;
+      class FakeAudioContext {
+        constructor() { this.state = 'suspended'; this.currentTime = 0; this.destination = {}; }
+        async resume() { this.state = 'running'; }
+        createOscillator() {
+          return {
+            frequency: { setValueAtTime() {} }, connect() {},
+            start() { window.soundStarts += 1; }, stop() { window.soundStops += 1; },
+          };
+        }
+        createGain() {
+          return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} };
+        }
+      }
+      Object.defineProperty(window, 'AudioContext', { value: FakeAudioContext });
+    });
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill('turnRight();\nturnRight();\nturnRight();');
+    await page.locator('#step').click();
+    assert.equal(await page.evaluate(() => window.soundStarts), 0);
+    const actionStatus = await page.locator('#status').textContent();
+    await page.locator('#sound-toggle').click();
+    assert.equal(await page.locator('#sound-toggle').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#status').textContent(), actionStatus);
+    const enabledCount = await page.evaluate(() => window.soundStarts);
+    assert.ok(enabledCount > 0);
+    await page.locator('#step').click();
+    assert.ok(await page.evaluate(() => window.soundStarts) > enabledCount);
+    const stopsBefore = await page.evaluate(() => window.soundStops);
+    await page.locator('#sound-toggle').click();
+    assert.equal(await page.locator('#sound-toggle').getAttribute('aria-pressed'), 'false');
+    const disabledCount = await page.evaluate(() => window.soundStarts);
+    await page.locator('#step').click();
+    assert.equal(await page.evaluate(() => window.soundStarts), disabledCount);
+    assert.ok(await page.evaluate(() => window.soundStops) > stopsBefore);
+    await page.reload();
+    assert.equal(await page.locator('#sound-toggle').getAttribute('aria-pressed'), 'false');
+  } finally { await context.close(); }
+});
+
+test('an unavailable audio engine does not prevent play', async () => {
+  const context = await browser.newContext();
+  try {
+    await context.addInitScript(() => {
+      Object.defineProperty(window, 'AudioContext', { value: undefined });
+      Object.defineProperty(window, 'webkitAudioContext', { value: undefined });
+    });
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#sound-toggle').click();
+    assert.equal(await page.locator('#sound-toggle').getAttribute('aria-pressed'), 'false');
+    assert.match(await page.locator('#sound-feedback').textContent(), /無法使用音效/);
+    await page.locator('#code').fill('moveForward();');
+    await page.locator('#step').click();
+    assert.match(await page.locator('#coordinates').textContent(), /X 02.*Y 05/);
+  } finally { await context.close(); }
+});
+
 test('undo restores movement and collection, and editing clears history', async () => {
   const context = await browser.newContext();
   try {
@@ -424,8 +488,12 @@ test('the whole map fits its scene at desktop and phone sizes', async () => {
       const fits = await page.evaluate(() => {
         const frame = document.querySelector('.world-frame').getBoundingClientRect();
         const map = document.querySelector('.world').getBoundingClientRect();
+        const controls = ['.brand', '#sound-toggle', '#open-journey', '.mission-nav']
+          .map((selector) => document.querySelector(selector).getBoundingClientRect());
         return map.left >= frame.left - 1 && map.right <= frame.right + 1 &&
           map.top >= frame.top - 1 && map.bottom <= frame.bottom + 1 &&
+          controls.every((rect, index) => index === 0 || controls[index - 1].right <= rect.left + 1) &&
+          controls.at(-1).right <= innerWidth + 1 &&
           document.documentElement.scrollWidth <= innerWidth;
       });
       assert.equal(fits, true, `map should fit at ${width}×${height}`);

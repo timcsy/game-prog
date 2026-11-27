@@ -14,6 +14,7 @@
       <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span> 光種計畫</div>
       <div class="top-progress">
         <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
+        <button id="sound-toggle" class="sound-toggle" type="button" aria-label="開啟遊戲音效" aria-pressed="false" title="開啟遊戲音效">🔇</button>
         <button id="open-journey" class="journey-open" type="button" aria-haspopup="dialog">旅程地圖</button>
         <nav class="mission-nav" aria-label="已解鎖任務">
           <button id="previous-mission" type="button" aria-label="回到上一段已解鎖任務" disabled>←</button>
@@ -22,6 +23,7 @@
         </nav>
       </div>
     </header>
+    <span id="sound-feedback" class="visually-hidden" role="status"></span>
 
     <main id="top">
       <section class="workbench" aria-label="任務操作區">
