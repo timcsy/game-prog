@@ -303,6 +303,22 @@ test('the scene reflects movement and collected gate energy, then resets', async
   } finally { await context.close(); }
 });
 
+test('the map shows the path taken in this attempt and clears it on reset', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    assert.equal(await page.locator('.tile.visited').count(), 1);
+    await page.locator('#code').fill('moveForward();\nmoveForward();\nturnLeft();');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.equal(await page.locator('.tile.visited').count(), 3);
+    assert.match(await page.locator('[data-x="1"][data-y="4"]').getAttribute('aria-label'), /可通行.*這次走過/);
+    await page.locator('#reset').click();
+    assert.equal(await page.locator('.tile.visited').count(), 1);
+    assert.doesNotMatch(await page.locator('[data-x="1"][data-y="4"]').getAttribute('aria-label'), /這次走過/);
+  } finally { await context.close(); }
+});
+
 test('optional echoes reward exploration and reset with each attempt', async () => {
   const context = await browser.newContext();
   try {

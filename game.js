@@ -150,6 +150,7 @@
   let levelIndex = highestUnlocked;
   const missionDrafts = LEVELS.map((mission) => mission.starter);
   let rover = { ...level().start };
+  let visited = new Set([`${rover.x},${rover.y}`]);
   let collected = new Set();
   let echoFound = false;
   let switchActive = false;
@@ -205,6 +206,7 @@
       tile.tabIndex = -1;
       const x = Number(tile.dataset.x);
       const y = Number(tile.dataset.y);
+      const wasVisited = visited.has(`${x},${y}`);
       const seedIndex = level().seeds.findIndex((seed) => seed.x === x && seed.y === y);
       const landmarks = [];
       if (tile.classList.contains('wall')) landmarks.push('岩壁');
@@ -214,7 +216,10 @@
       if (x === level().switchTile?.x && y === level().switchTile?.y) landmarks.push(`能量開關${switchActive ? '，已啟動' : '，走上可啟動'}`);
       if (x === level().barrier?.x && y === level().barrier?.y) landmarks.push(`光閘${switchActive ? '，已打開' : '，關閉中'}`);
       if (x === rover.x && y === rover.y) landmarks.unshift(`小芽，面向${DIRECTIONS[rover.direction].name}方`);
-      tile.setAttribute('aria-label', `X ${x + 1}，Y ${y + 1}，${landmarks.join('，') || '可通行'}`);
+      if (landmarks.length === 0) landmarks.push('可通行');
+      if (wasVisited) landmarks.push('這次走過');
+      tile.setAttribute('aria-label', `X ${x + 1}，Y ${y + 1}，${landmarks.join('，')}`);
+      tile.classList.toggle('visited', wasVisited);
     });
     world.querySelectorAll('.rover-tile').forEach((tile) => tile.classList.remove('rover-tile'));
     world.querySelectorAll('.rover').forEach((sprite) => sprite.remove());
@@ -330,6 +335,7 @@
     const previousPosition = { x: rover.x, y: rover.y };
     rover.x = x;
     rover.y = y;
+    visited.add(`${x},${y}`);
     const discoveredEcho = !echoFound && rover.x === level().echo.x && rover.y === level().echo.y;
     if (discoveredEcho) {
       echoFound = true;
@@ -483,6 +489,7 @@
 
   function freshAttempt() {
     rover = { ...level().start };
+    visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
     switchActive = false;
@@ -622,6 +629,7 @@
     nextInstruction = 0;
     updateRunButton();
     rover = { ...level().start };
+    visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
     switchActive = false;
@@ -694,6 +702,7 @@
     nextInstruction = 0;
     updateRunButton();
     rover = { ...level().start };
+    visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
     switchActive = false;
