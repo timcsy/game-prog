@@ -16,7 +16,7 @@
         <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
         <nav class="mission-nav" aria-label="已解鎖任務">
           <button id="previous-mission" type="button" aria-label="回到上一段已解鎖任務" disabled>←</button>
-          <span id="mission-position" aria-live="polite">01 / 05</span>
+          <span id="mission-position" aria-live="polite">01 / 06</span>
           <button id="next-unlocked" type="button" aria-label="前往下一段已解鎖任務" disabled>→</button>
         </nav>
       </div>
@@ -61,8 +61,8 @@
             <span><i class="legend-rock">▰</i> 岩壁</span>
             <span><i class="legend-echo">◇</i> 回聲（走過、可選）</span>
             <span><i class="legend-trail">•</i> 足跡</span>
+            <span id="map-help" class="map-help">地圖可用方向鍵探索，按 Tab 繼續操作；走過回聲會發現故事，回聲不是通關必需。足跡顯示這次行動走過的位置。</span>
           </div>
-          <p id="map-help" class="map-help">地圖可用方向鍵探索，按 Tab 繼續操作；走過回聲會發現故事，回聲不是通關必需。足跡顯示這次行動走過的位置。</p>
           <div class="status-strip"><span class="rover-avatar" aria-hidden="true">✦</span><span class="speaker">小芽</span><p id="status" role="status" aria-live="polite">著陸完成。先看看地圖，再決定小芽要怎麼走。</p></div>
         </div>
 
@@ -106,7 +106,7 @@ collectLight();
             <div class="note-body" id="hint-copy"><code>moveForward();</code> 會依照小芽面向移動一格。先找出光種在哪一格，再安排方向和步數。</div>
           </details>
           <details class="field-note journal">
-            <summary><span class="note-icon">◇</span> 回聲日誌 <span id="journal-count">0 / 5</span> <span class="chevron">⌄</span></summary>
+            <summary><span class="note-icon">◇</span> 回聲日誌 <span id="journal-count">0 / 6</span> <span class="chevron">⌄</span></summary>
             <p id="journal-note"></p>
             <ul id="journal-entries"></ul>
           </details>

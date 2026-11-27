@@ -82,6 +82,23 @@
       hint: 'A 開關只控制 A 光閘，B 開關只控制 B 光閘。先在地圖上找出兩組位置，必要時可用單步觀察道路變化。',
       instruction: '先後啟動兩組開關，再找齊光種並回到導航門。',
     },
+    {
+      name: '光晶的重量',
+      scene: 'crystal',
+      title: '有些門需要重量。<br /><em>把光晶帶到對的位置。</em>',
+      lead: '推動藍色光晶，讓它留在 ◉ 底座上，才能保持光閘開啟。',
+      area: '沉睡星球 · 光晶花園',
+      start: { x: 0, y: 4, direction: 1 },
+      seeds: [{ x: 0, y: 3 }, { x: 5, y: 2 }],
+      gate: { x: 6, y: 2 },
+      echo: { x: 0, y: 2, story: '光晶曾替花園守住能量；只有穩穩放在底座上，光才能流向遠方。' },
+      crate: { x: 2, y: 4 },
+      mechanisms: [{ id: 'A', switchTile: { x: 2, y: 3 }, barrier: { x: 3, y: 2 }, trigger: 'crate' }],
+      walls: new Set(['3,0', '3,1', '3,3', '3,4', '3,5', '2,1', '1,1', '4,4', '5,4']),
+      starter: '// 小芽前進時可以推動前方的光晶\nturnLeft();\nmoveForward();\ncollectLight();\n\n// 想想要從哪一側把光晶推上底座',
+      hint: '站到光晶旁並面向它，再用 <code>moveForward();</code> 推動。光晶後方須有空間；離開底座後光閘會關閉。',
+      instruction: '把光晶推上底座，再繞路找齊光種並啟動導航門。',
+    },
   ];
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
   const COMPLETED_KEY = 'light-seed-game-completed-mission';
@@ -183,6 +200,7 @@
   let levelIndex = highestUnlocked;
   const missionDrafts = LEVELS.map((mission) => mission.starter);
   let rover = { ...level().start };
+  let crate = level().crate ? { ...level().crate } : null;
   let visited = new Set([`${rover.x},${rover.y}`]);
   let collected = new Set();
   let echoFound = false;
@@ -225,6 +243,7 @@
           if (switchMechanism || barrierMechanism) {
             const mechanism = switchMechanism ?? barrierMechanism;
             tile.classList.add(switchMechanism ? 'switch-tile' : 'barrier');
+            if (switchMechanism?.trigger === 'crate') tile.classList.add('pressure-plate');
             tile.dataset.mechanism = mechanism.id;
             const label = document.createElement('span');
             label.className = 'mechanism-label';
@@ -256,8 +275,14 @@
       if (x === level().echo.x && y === level().echo.y) landmarks.push(`星球回聲${echoFound ? '，已發現' : '，走過可發現'}`);
       const switchMechanism = (level().mechanisms ?? []).find((item) => item.switchTile.x === x && item.switchTile.y === y);
       const barrierMechanism = (level().mechanisms ?? []).find((item) => item.barrier.x === x && item.barrier.y === y);
-      if (switchMechanism) landmarks.push(`能量開關 ${switchMechanism.id}${activeSwitches.has(switchMechanism.id) ? '，已啟動' : '，走上可啟動'}`);
-      if (barrierMechanism) landmarks.push(`光閘 ${barrierMechanism.id}${activeSwitches.has(barrierMechanism.id) ? '，已打開' : '，關閉中'}`);
+      if (switchMechanism) {
+        const active = isMechanismActive(switchMechanism);
+        landmarks.push(switchMechanism.trigger === 'crate'
+          ? `能量底座 ${switchMechanism.id}${active ? '，光晶已放上' : '，需要光晶'}`
+          : `能量開關 ${switchMechanism.id}${active ? '，已啟動' : '，走上可啟動'}`);
+      }
+      if (barrierMechanism) landmarks.push(`光閘 ${barrierMechanism.id}${isMechanismActive(barrierMechanism) ? '，已打開' : '，關閉中'}`);
+      if (crate?.x === x && crate?.y === y) landmarks.push('光晶，可推動');
       if (x === rover.x && y === rover.y) landmarks.unshift(`小芽，面向${DIRECTIONS[rover.direction].name}方`);
       if (landmarks.length === 0) landmarks.push('可通行');
       if (wasVisited) landmarks.push('這次走過');
@@ -271,8 +296,17 @@
       tile.classList.toggle('collected', collected.has(seed));
     });
     world.querySelector('.echo')?.classList.toggle('found', echoFound);
-    world.querySelectorAll('.switch-tile').forEach((tile) => tile.classList.toggle('active', activeSwitches.has(tile.dataset.mechanism)));
-    world.querySelectorAll('.barrier').forEach((tile) => tile.classList.toggle('open', activeSwitches.has(tile.dataset.mechanism)));
+    world.querySelectorAll('.switch-tile, .barrier').forEach((tile) => {
+      const mechanism = level().mechanisms.find((item) => item.id === tile.dataset.mechanism);
+      tile.classList.toggle(tile.classList.contains('barrier') ? 'open' : 'active', isMechanismActive(mechanism));
+    });
+    world.querySelectorAll('.crate-sprite').forEach((sprite) => sprite.remove());
+    if (crate) {
+      const sprite = document.createElement('span');
+      sprite.className = 'crate-sprite';
+      sprite.setAttribute('aria-hidden', 'true');
+      tileAt(crate.x, crate.y)?.append(sprite);
+    }
     echoLog.hidden = !echoFound;
     echoLog.textContent = echoFound ? `◇ 這次發現的星球回聲：${level().echo.story}` : '';
     const gateTile = world.querySelector(`[data-x="${level().gate.x}"][data-y="${level().gate.y}"]`);
@@ -357,8 +391,18 @@
     return world.querySelector(`[data-x="${x}"][data-y="${y}"]`);
   }
 
+  function isMechanismActive(mechanism) {
+    return mechanism.trigger === 'crate'
+      ? Boolean(crate && crate.x === mechanism.switchTile.x && crate.y === mechanism.switchTile.y)
+      : activeSwitches.has(mechanism.id);
+  }
+
   function closedBarrierAt(x, y) {
-    return (level().mechanisms ?? []).find((item) => item.barrier.x === x && item.barrier.y === y && !activeSwitches.has(item.id));
+    return (level().mechanisms ?? []).find((item) => item.barrier.x === x && item.barrier.y === y && !isMechanismActive(item));
+  }
+
+  function canEnter(x, y) {
+    return Boolean(tileAt(x, y)) && !level().walls.has(`${x},${y}`) && !closedBarrierAt(x, y);
   }
 
   function moveForward() {
@@ -374,7 +418,19 @@
     }
     const blockedBy = closedBarrierAt(x, y);
     if (blockedBy) {
-      return { ok: false, message: `光閘擋住了去路。先走上能量開關 ${blockedBy.id}，讓光閘打開。` };
+      return { ok: false, message: blockedBy.trigger === 'crate'
+        ? `光閘擋住了去路。先把光晶推上能量底座 ${blockedBy.id}。`
+        : `光閘擋住了去路。先走上能量開關 ${blockedBy.id}，讓光閘打開。` };
+    }
+    const pushedCrate = crate?.x === x && crate?.y === y;
+    const pressureMechanism = (level().mechanisms ?? []).find((item) => item.trigger === 'crate');
+    const pressureWasActive = pressureMechanism && isMechanismActive(pressureMechanism);
+    if (pushedCrate) {
+      const nextCrate = { x: x + vector.x, y: y + vector.y };
+      if (!canEnter(nextCrate.x, nextCrate.y)) {
+        return { ok: false, message: '光晶推不動，後方沒有可通行的空間。換個方向或重新安排路線。' };
+      }
+      crate = nextCrate;
     }
     const previousPosition = { x: rover.x, y: rover.y };
     rover.x = x;
@@ -386,15 +442,20 @@
       knownEchoes.add(levelIndex);
       saveEchoes();
     }
-    const activatedSwitch = (level().mechanisms ?? []).find((item) => rover.x === item.switchTile.x && rover.y === item.switchTile.y && !activeSwitches.has(item.id));
+    const activatedSwitch = (level().mechanisms ?? []).find((item) => item.trigger !== 'crate' && rover.x === item.switchTile.x && rover.y === item.switchTile.y && !activeSwitches.has(item.id));
     if (activatedSwitch) activeSwitches.add(activatedSwitch.id);
+    const pressureIsActive = pressureMechanism && isMechanismActive(pressureMechanism);
     drawWorld(previousPosition);
     const movement = discoveredEcho
       ? `小芽抵達 X ${rover.x + 1}、Y ${rover.y + 1}，發現星球回聲。`
       : `小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。`;
-    setStatus(`${movement}${activatedSwitch ? ` 踩上能量開關 ${activatedSwitch.id}，光閘打開了！` : ''}`);
+    const pressureFeedback = pushedCrate && pressureWasActive !== pressureIsActive
+      ? pressureIsActive ? ` 光晶壓住底座，光閘 ${pressureMechanism.id} 打開了！` : ` 光晶離開底座，光閘 ${pressureMechanism.id} 關閉了。`
+      : '';
+    setStatus(`${movement}${pushedCrate ? ' 小芽推動了光晶。' : ''}${activatedSwitch ? ` 踩上能量開關 ${activatedSwitch.id}，光閘打開了！` : ''}${pressureFeedback}`);
     if (discoveredEcho) showToast('發現星球回聲 ◇');
     if (activatedSwitch) showToast(`光閘 ${activatedSwitch.id} 已打開 ◉`);
+    if (pressureFeedback) showToast(pressureIsActive ? '光晶啟動了底座 ◉' : '光晶離開底座');
     return { ok: true };
   }
 
@@ -470,7 +531,8 @@
     const vector = DIRECTIONS[rover.direction];
     const x = rover.x + vector.x;
     const y = rover.y + vector.y;
-    return !tileAt(x, y) || level().walls.has(`${x},${y}`) || Boolean(closedBarrierAt(x, y));
+    if (!canEnter(x, y)) return true;
+    return Boolean(crate?.x === x && crate?.y === y && !canEnter(x + vector.x, y + vector.y));
   }
 
   function updateMissionNavigation() {
@@ -489,6 +551,10 @@
         : '通關時會嘗試在此瀏覽器保存進度';
   }
 
+  function shortName(name) {
+    return name.length > 24 ? `${name.slice(0, 21)}…` : name;
+  }
+
   function parseProgram() {
     const lines = code.value.split(/\r?\n/);
     const actions = [];
@@ -500,7 +566,7 @@
         if (levelIndex < 2) throw new Error(`第 ${index + 1} 行：小芽還沒學會 if 判斷。先完成感應與選擇任務，再試這種寫法。`);
         const condition = CONDITIONS.get(conditional[1]);
         const action = COMMANDS.get(conditional[2]);
-        if (!condition) throw new Error(`第 ${index + 1} 行：還沒有「${conditional[1]}」這個感測器。`);
+        if (!condition) throw new Error(`第 ${index + 1} 行：還沒有「${shortName(conditional[1])}」這個感測器。`);
         if (!action) throw new Error(`第 ${index + 1} 行：if 後面請放一個已解鎖的行動。`);
         actions.push({ action, condition, conditionName: conditional[1], name: `if (${conditional[1]}()) ${conditional[2]}()`, line: index + 1 });
         if (actions.length > 50) throw new Error('這次行動太長了，先試試 50 步以內。');
@@ -525,7 +591,7 @@
       }
       const action = COMMANDS.get(match[1]);
       if (!action) {
-        throw new Error(`第 ${index + 1} 行的「${match[1]}」還沒學過。可以用下方已解鎖的行動。`);
+        throw new Error(`第 ${index + 1} 行的「${shortName(match[1])}」還沒學過。可以用下方已解鎖的行動。`);
       }
       actions.push({ action, name: match[1], line: index + 1 });
       if (actions.length > 50) throw new Error('這次行動太長了，先試試 50 行以內。');
@@ -536,6 +602,7 @@
 
   function freshAttempt() {
     rover = { ...level().start };
+    crate = level().crate ? { ...level().crate } : null;
     visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
@@ -676,6 +743,7 @@
     nextInstruction = 0;
     updateRunButton();
     rover = { ...level().start };
+    crate = level().crate ? { ...level().crate } : null;
     visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
@@ -766,6 +834,7 @@
     nextInstruction = 0;
     updateRunButton();
     rover = { ...level().start };
+    crate = level().crate ? { ...level().crate } : null;
     visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
