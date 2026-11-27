@@ -48,6 +48,7 @@
               <p class="win-eyebrow">SIGNAL RESTORED</p>
               <h2>星球重新亮起了。</h2>
               <p>小芽收到返航訊號。這段路，是你寫出來的。</p>
+              <p id="win-story"></p>
               <button id="next-mission" class="text-button" type="button" hidden>前往下一段訊號 ↗</button>
               <button id="replay-win" class="text-button" type="button">再走一次 ↗</button>
             </div>
@@ -57,8 +58,9 @@
             <span><i class="legend-seed">✦</i> 光種</span>
             <span><i class="legend-gate">⌒</i> 導航門</span>
             <span><i class="legend-rock">▰</i> 岩壁</span>
+            <span><i class="legend-echo">◇</i> 回聲（走過、可選）</span>
           </div>
-          <p id="map-help" class="map-help">地圖可用方向鍵探索，按 Tab 繼續操作。</p>
+          <p id="map-help" class="map-help">地圖可用方向鍵探索，按 Tab 繼續操作；走過回聲會發現故事，回聲不是通關必需。</p>
           <div class="status-strip"><span class="rover-avatar" aria-hidden="true">✦</span><span class="speaker">小芽</span><p id="status" role="status" aria-live="polite">著陸完成。先看看地圖，再決定小芽要怎麼走。</p></div>
         </div>
 
@@ -81,6 +83,7 @@ collectLight();
             <button id="step" class="step-button" type="button"><span aria-hidden="true">▷|</span> 單步</button>
             <button id="reset" class="reset-button" type="button" aria-label="重設本次行動">重設</button>
           </div>
+          <p id="echo-log" class="echo-log" hidden></p>
           <p id="editor-help" class="editor-help">一行一個指令。試著補上轉向、前進，再取回光種。</p>
           <p id="draft-help" class="draft-help">切換任務時會保留程式；重新載入頁面後不會保留。</p>
           <div class="command-drawer">

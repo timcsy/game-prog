@@ -10,6 +10,7 @@
       start: { x: 0, y: 4, direction: 1 },
       seeds: [{ x: 2, y: 4 }, { x: 2, y: 2 }],
       gate: { x: 6, y: 2 },
+      echo: { x: 1, y: 3, story: '這裡曾有一座小花園，光種照顧著沉睡的植物。' },
       walls: new Set(['3,4', '4,4', '3,3', '4,1', '5,1', '1,1', '1,2', '5,4', '5,5']),
       starter: '// 從這裡開始，安排小芽的行動\nmoveForward();\nmoveForward();\ncollectLight();\n\n// 還有一顆光種和導航門等著你',
       hint: '<code>moveForward();</code> 會依照小芽面向移動一格。先找出光種在哪一格，再安排方向和步數。',
@@ -23,6 +24,7 @@
       start: { x: 0, y: 4, direction: 1 },
       seeds: [{ x: 2, y: 4 }, { x: 4, y: 4 }],
       gate: { x: 6, y: 4 },
+      echo: { x: 3, y: 3, story: '山谷曾把旅人的歌聲傳得很遠，直到最後一盞燈熄滅。' },
       walls: new Set(['0,1', '1,1', '3,1', '5,1', '6,1', '1,2', '5,2', '0,5', '2,5', '4,5', '6,5']),
       starter: '// repeat 會把一個行動重複執行指定次數\nrepeat(2, moveForward);\ncollectLight();\n\n// 小芽再走同樣遠，就會遇見下一顆光種\ncollectLight();',
       hint: '<code>repeat(2, moveForward);</code> 會把 <code>moveForward</code> 重複執行兩次。括號裡放次數和行動；小芽每走一步，地圖都會回應。',
@@ -36,6 +38,7 @@
       start: { x: 0, y: 4, direction: 1 },
       seeds: [{ x: 2, y: 4 }, { x: 2, y: 2 }],
       gate: { x: 6, y: 2 },
+      echo: { x: 0, y: 2, story: '小芽找到一則舊訊息：「只要還有光，就有回家的路。」' },
       walls: new Set(['3,4', '4,4', '3,3', '4,1', '5,1', '1,1', '1,2', '5,4', '5,5']),
       starter: '// 起點沒有光種：這行條件不成立時會被略過\nif (lightIsPresent()) collectLight();\nmoveForward();\nmoveForward();\nif (lightIsPresent()) collectLight();\n\n// 偵測到前方岩壁時，才需要左轉\nmoveForward();\nmoveForward();\nif (lightIsPresent()) collectLight();\nturnRight();\nrepeat(4, moveForward);\nopenGate();',
       hint: '<code>if (lightIsPresent()) collectLight();</code> 會先檢查小芽所在格有沒有光種；沒有時略過拾取，有時才執行。前方有岩壁時也可以用感測器決定要不要轉彎。',
@@ -85,6 +88,8 @@
   const help = document.querySelector('#editor-help');
   const toast = document.querySelector('#toast');
   const winCard = document.querySelector('#win-card');
+  const winStory = document.querySelector('#win-story');
+  const echoLog = document.querySelector('#echo-log');
   const nextMissionButton = document.querySelector('#next-mission');
   const previousMissionButton = document.querySelector('#previous-mission');
   const nextUnlockedButton = document.querySelector('#next-unlocked');
@@ -106,6 +111,7 @@
   const missionDrafts = LEVELS.map((mission) => mission.starter);
   let rover = { ...level().start };
   let collected = new Set();
+  let echoFound = false;
   let gateOpen = false;
   let program = null;
   let nextInstruction = 0;
@@ -131,12 +137,14 @@
         const isWall = level().walls.has(key);
         const isSeed = level().seeds.some((seed) => seed.x === x && seed.y === y);
         const isGate = level().gate.x === x && level().gate.y === y;
+        const isEcho = level().echo.x === x && level().echo.y === y;
         if (isWall) {
           tile.classList.add('wall');
         } else {
           tile.classList.add('path');
           if (isSeed) tile.classList.add('seed');
           if (isGate) tile.classList.add('gate');
+          if (isEcho) tile.classList.add('echo');
         }
         row.append(tile);
       }
@@ -157,6 +165,7 @@
       if (tile.classList.contains('wall')) landmarks.push('岩壁');
       if (seedIndex !== -1) landmarks.push(`光種${collected.has(seedIndex) ? '，已收集' : ''}`);
       if (x === level().gate.x && y === level().gate.y) landmarks.push(`導航門${gateOpen ? '，已啟動' : ''}`);
+      if (x === level().echo.x && y === level().echo.y) landmarks.push(`星球回聲${echoFound ? '，已發現' : '，走過可發現'}`);
       if (x === rover.x && y === rover.y) landmarks.unshift(`小芽，面向${DIRECTIONS[rover.direction].name}方`);
       tile.setAttribute('aria-label', `X ${x + 1}，Y ${y + 1}，${landmarks.join('，') || '可通行'}`);
     });
@@ -166,6 +175,9 @@
       const seed = level().seeds.findIndex((item) => item.x === Number(tile.dataset.x) && item.y === Number(tile.dataset.y));
       tile.classList.toggle('collected', collected.has(seed));
     });
+    world.querySelector('.echo')?.classList.toggle('found', echoFound);
+    echoLog.hidden = !echoFound;
+    echoLog.textContent = echoFound ? `◇ 這次發現的星球回聲：${level().echo.story}` : '';
     const gateTile = world.querySelector(`[data-x="${level().gate.x}"][data-y="${level().gate.y}"]`);
     if (gateTile) {
       gateTile.classList.toggle('open', gateOpen);
@@ -233,8 +245,11 @@
     const previousPosition = { x: rover.x, y: rover.y };
     rover.x = x;
     rover.y = y;
+    const discoveredEcho = !echoFound && rover.x === level().echo.x && rover.y === level().echo.y;
+    if (discoveredEcho) echoFound = true;
     drawWorld(previousPosition);
-    setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。`);
+    setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。${discoveredEcho ? ` 發現星球回聲：${level().echo.story}` : ''}`);
+    if (discoveredEcho) showToast('發現星球回聲 ◇');
     return { ok: true };
   }
 
@@ -288,9 +303,10 @@
     drawWorld();
     world.hidden = true;
     winCard.hidden = false;
+    winStory.textContent = echoFound ? `你還發現了星球回聲：${level().echo.story}` : '地圖上還藏著星球回聲，也許下次可以繞路探索。';
     nextMissionButton.hidden = levelIndex >= LEVELS.length - 1;
     setStatus('導航門亮起來了！你幫小芽接通返航訊號。');
-    showToast('訊號已恢復！');
+    toast.classList.remove('show');
     (nextMissionButton.hidden ? document.querySelector('#replay-win') : nextMissionButton).focus();
     return { ok: true, won: true };
   }
@@ -371,6 +387,7 @@
   function freshAttempt() {
     rover = { ...level().start };
     collected = new Set();
+    echoFound = false;
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -490,6 +507,7 @@
     nextInstruction = 0;
     rover = { ...level().start };
     collected = new Set();
+    echoFound = false;
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -557,6 +575,7 @@
     nextInstruction = 0;
     rover = { ...level().start };
     collected = new Set();
+    echoFound = false;
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;

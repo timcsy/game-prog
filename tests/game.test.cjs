@@ -52,6 +52,7 @@ test('three missions unlock, survive reload, and return focus on replay', async 
     await page.goto(url);
     await complete(page, 0);
     assert.equal(await page.locator('#world').isHidden(), true);
+    assert.match(await page.locator('#win-story').textContent(), /還藏著星球回聲/);
     assert.equal(await page.evaluate(() => document.activeElement.id), 'next-mission');
     await page.locator('#next-mission').click();
     await page.reload();
@@ -79,6 +80,23 @@ test('winning ends the attempt even when instructions follow the gate', async ()
     assert.match(await page.locator('#coordinates').textContent(), /X 02.*Y 05/);
     assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /面向東方/);
     assert.match(await page.locator('#goal-count').textContent(), /0 \/ 2/);
+  } finally { await context.close(); }
+});
+
+test('both win actions fit in the scene on a small screen', async () => {
+  const context = await browser.newContext({ viewport: { width: 320, height: 700 } });
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await complete(page, 0);
+    const fits = await page.evaluate(() => {
+      const frame = document.querySelector('.world-frame').getBoundingClientRect();
+      return ['#next-mission', '#replay-win'].every((selector) => {
+        const button = document.querySelector(selector).getBoundingClientRect();
+        return button.top >= frame.top - 1 && button.bottom <= frame.bottom + 1;
+      });
+    });
+    assert.equal(fits, true);
   } finally { await context.close(); }
 });
 
@@ -233,6 +251,36 @@ test('the scene reflects movement and collected gate energy, then resets', async
     assert.equal(await page.locator('.world-frame.energized').count(), 0);
     assert.equal(await page.locator('.rover.travelling').count(), 0);
     assert.match(await page.locator('#goal-count').textContent(), /0 \/ 2/);
+  } finally { await context.close(); }
+});
+
+test('optional echoes reward exploration and reset with each attempt', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    assert.match(await page.locator('.echo').getAttribute('aria-label'), /星球回聲.*走過可發現/);
+    const detour = 'turnLeft();\nmoveForward();\nturnRight();\nmoveForward();\nturnRight();\nmoveForward();\nturnLeft();\nmoveForward();\ncollectLight();\nturnLeft();\nmoveForward();\nmoveForward();\ncollectLight();\nturnRight();\nmoveForward();\nmoveForward();\nmoveForward();\nmoveForward();\nopenGate();';
+    await page.locator('#code').fill(detour);
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /發現星球回聲.*小花園/);
+    assert.match(await page.locator('.echo').getAttribute('aria-label'), /已發現/);
+    assert.match(await page.locator('#echo-log').textContent(), /小花園/);
+    for (let i = 4; i < 19; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#win-story').textContent(), /小花園/);
+    await page.locator('#replay-win').click();
+    assert.equal(await page.locator('#echo-log').isHidden(), true);
+    assert.match(await page.locator('.echo').getAttribute('aria-label'), /走過可發現/);
+
+    await page.locator('#next-unlocked').click();
+    await page.locator('#code').fill('repeat(3, moveForward);\nturnLeft();\nmoveForward();');
+    for (let i = 0; i < 5; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#echo-log').textContent(), /山谷/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '2'));
+    await page.reload();
+    await page.locator('#code').fill('turnLeft();\nrepeat(2, moveForward);');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#echo-log').textContent(), /回家的路/);
   } finally { await context.close(); }
 });
 
