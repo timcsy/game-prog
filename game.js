@@ -62,7 +62,9 @@
     },
   ];
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
+  const ECHO_KEY = 'light-seed-game-discovered-echoes';
   let storageAvailable = null;
+  let echoStorageAvailable = null;
   function loadUnlockedMission() {
     try {
       const saved = Number(window.localStorage.getItem(PROGRESS_KEY));
@@ -70,6 +72,20 @@
     } catch {
       storageAvailable = false;
       return 0;
+    }
+  }
+  function readSavedEchoes() {
+    const raw = window.localStorage.getItem(ECHO_KEY);
+    let entries;
+    try { entries = JSON.parse(raw || '[]'); } catch { entries = []; }
+    return new Set(Array.isArray(entries)
+      ? entries.filter((index) => Number.isInteger(index) && index >= 0 && index < LEVELS.length)
+      : []);
+  }
+  function loadEchoes() {
+    try { return readSavedEchoes(); } catch {
+      echoStorageAvailable = false;
+      return new Set();
     }
   }
   const level = () => LEVELS[levelIndex];
@@ -106,6 +122,9 @@
   const winCard = document.querySelector('#win-card');
   const winStory = document.querySelector('#win-story');
   const echoLog = document.querySelector('#echo-log');
+  const journalCount = document.querySelector('#journal-count');
+  const journalEntries = document.querySelector('#journal-entries');
+  const journalNote = document.querySelector('#journal-note');
   const nextMissionButton = document.querySelector('#next-mission');
   const previousMissionButton = document.querySelector('#previous-mission');
   const nextUnlockedButton = document.querySelector('#next-unlocked');
@@ -123,6 +142,7 @@
   const runLabel = runButton.innerHTML;
 
   let highestUnlocked = loadUnlockedMission();
+  const knownEchoes = loadEchoes();
   let levelIndex = highestUnlocked;
   const missionDrafts = LEVELS.map((mission) => mission.starter);
   let rover = { ...level().start };
@@ -244,6 +264,35 @@
     status.parentElement.classList.toggle('is-error', type === 'error');
   }
 
+  function saveEchoes() {
+    try {
+      const saved = readSavedEchoes();
+      saved.forEach((index) => knownEchoes.add(index));
+      const combined = JSON.stringify([...knownEchoes].sort((a, b) => a - b));
+      if (window.localStorage.getItem(ECHO_KEY) !== combined) window.localStorage.setItem(ECHO_KEY, combined);
+      echoStorageAvailable = true;
+    } catch {
+      echoStorageAvailable = false;
+    }
+    renderJournal();
+    updateProgressNote();
+  }
+
+  function renderJournal() {
+    journalCount.textContent = `${knownEchoes.size} / ${LEVELS.length}`;
+    journalEntries.replaceChildren(...LEVELS.map((mission, index) => {
+      const entry = document.createElement('li');
+      entry.textContent = knownEchoes.has(index)
+        ? `${mission.name}：${mission.echo.story}`
+        : `任務 ${index + 1}：尚未發現回聲`;
+      return entry;
+    }));
+    journalNote.textContent = echoStorageAvailable === false
+      ? '無法保存回聲；目前只保留在此頁面。'
+      : echoStorageAvailable === true ? '回聲保存在此瀏覽器；重設行動不會清除。'
+        : '發現時會嘗試保存在此瀏覽器；重設行動不會清除。';
+  }
+
   function showToast(message, type = 'normal') {
     window.clearTimeout(toastTimer);
     toast.textContent = message;
@@ -278,11 +327,18 @@
     rover.x = x;
     rover.y = y;
     const discoveredEcho = !echoFound && rover.x === level().echo.x && rover.y === level().echo.y;
-    if (discoveredEcho) echoFound = true;
+    if (discoveredEcho) {
+      echoFound = true;
+      knownEchoes.add(levelIndex);
+      saveEchoes();
+    }
     const activatedSwitch = !switchActive && rover.x === level().switchTile?.x && rover.y === level().switchTile?.y;
     if (activatedSwitch) switchActive = true;
     drawWorld(previousPosition);
-    setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。${discoveredEcho ? ` 發現星球回聲：${level().echo.story}` : ''}${activatedSwitch ? ' 踩上能量開關，光閘打開了！' : ''}`);
+    const movement = discoveredEcho
+      ? `小芽抵達 X ${rover.x + 1}、Y ${rover.y + 1}，發現星球回聲。`
+      : `小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。`;
+    setStatus(`${movement}${activatedSwitch ? ' 踩上能量開關，光閘打開了！' : ''}`);
     if (discoveredEcho) showToast('發現星球回聲 ◇');
     if (activatedSwitch) showToast('光閘已打開 ◉');
     return { ok: true };
@@ -338,7 +394,9 @@
     drawWorld();
     world.hidden = true;
     winCard.hidden = false;
-    winStory.textContent = echoFound ? `你還發現了星球回聲：${level().echo.story}` : '地圖上還藏著星球回聲，也許下次可以繞路探索。';
+    winStory.textContent = echoFound ? `你還發現了星球回聲：${level().echo.story}`
+      : knownEchoes.has(levelIndex) ? '這次沒有走到回聲；先前的故事仍在回聲日誌中。'
+        : '地圖上還藏著星球回聲，也許下次可以繞路探索。';
     nextMissionButton.hidden = levelIndex >= LEVELS.length - 1;
     setStatus('導航門亮起來了！你幫小芽接通返航訊號。');
     toast.classList.remove('show');
@@ -454,7 +512,7 @@
     if (gateOpen || hasActionError) return;
     let nextHint;
     if (collected.size < level().seeds.length) {
-      nextHint = `程式跑完了，背包有 ${collected.size} 顆光種。看看小芽還漏了哪些行動。`;
+      nextHint = '程式跑完了，繼續找光種。';
     } else if (rover.x !== level().gate.x || rover.y !== level().gate.y) {
       nextHint = '光種都找齊了。導航門在右側，安排小芽走完最後一段路吧。';
     } else {
@@ -703,10 +761,14 @@
 
   runButton.addEventListener('click', runProgram);
   window.addEventListener('storage', (event) => {
-    if (event.key !== PROGRESS_KEY) return;
-    highestUnlocked = Math.max(highestUnlocked, loadUnlockedMission());
-    updateMissionNavigation();
-    updateProgressNote();
+    if (event.key === PROGRESS_KEY) {
+      highestUnlocked = Math.max(highestUnlocked, loadUnlockedMission());
+      updateMissionNavigation();
+      updateProgressNote();
+    } else if (event.key === ECHO_KEY && event.newValue !== null) {
+      // Merge discoveries from other tabs, including any local discoveries not in that write.
+      saveEchoes();
+    }
   });
   world.addEventListener('keydown', moveMapFocus);
   stepButton.addEventListener('click', singleStep);
@@ -731,6 +793,7 @@
   });
 
   showMissionDetails();
+  renderJournal();
   updateProgressNote();
   updateMissionNavigation();
   initMap();

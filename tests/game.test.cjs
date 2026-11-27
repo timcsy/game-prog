@@ -290,7 +290,7 @@ test('optional echoes reward exploration and reset with each attempt', async () 
     const detour = 'turnLeft();\nmoveForward();\nturnRight();\nmoveForward();\nturnRight();\nmoveForward();\nturnLeft();\nmoveForward();\ncollectLight();\nturnLeft();\nmoveForward();\nmoveForward();\ncollectLight();\nturnRight();\nmoveForward();\nmoveForward();\nmoveForward();\nmoveForward();\nopenGate();';
     await page.locator('#code').fill(detour);
     for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
-    assert.match(await page.locator('#status').textContent(), /發現星球回聲.*小花園/);
+    assert.match(await page.locator('#status').textContent(), /發現星球回聲/);
     assert.match(await page.locator('.echo').getAttribute('aria-label'), /已發現/);
     assert.match(await page.locator('#echo-log').textContent(), /小花園/);
     for (let i = 4; i < 19; i += 1) await page.locator('#step').click();
@@ -343,6 +343,69 @@ test('a switch opens the barrier and the sensor observes both states', async () 
     assert.match(await page.locator('#coordinates').textContent(), /X 04.*Y 03/);
     await page.locator('#reset').click();
     assert.match(await page.locator('.barrier').getAttribute('aria-label'), /關閉/);
+  } finally { await context.close(); }
+});
+
+test('discovered stories remain in the journal after reset and reload', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    await page.locator('.journal summary').click();
+    assert.match(await page.locator('#journal-entries').textContent(), /小花園/);
+    await page.locator('#reset').click();
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    await page.reload();
+    await page.locator('.journal summary').click();
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    assert.match(await page.locator('#journal-entries').textContent(), /小花園/);
+    assert.equal(await page.locator('#echo-log').isHidden(), true);
+  } finally { await context.close(); }
+});
+
+test('echo discoveries merge across tabs without losing either story', async () => {
+  const context = await browser.newContext();
+  try {
+    const first = await context.newPage();
+    const second = await context.newPage();
+    await first.goto(url);
+    await second.goto(url);
+    await second.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '1'));
+    await second.reload();
+    await first.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
+    await second.locator('#code').fill('repeat(3, moveForward);\nturnLeft();\nmoveForward();');
+    for (let i = 0; i < 3; i += 1) await Promise.all([first.locator('#step').click(), second.locator('#step').click()]);
+    await second.locator('#step').click();
+    await Promise.all([first.locator('#step').click(), second.locator('#step').click()]);
+    await first.waitForFunction(() => document.querySelector('#journal-count').textContent === '2 / 4');
+    await second.waitForFunction(() => document.querySelector('#journal-count').textContent === '2 / 4');
+    assert.deepEqual(await first.evaluate(() => JSON.parse(localStorage.getItem('light-seed-game-discovered-echoes'))), [0, 1]);
+  } finally { await context.close(); }
+});
+
+test('unavailable echo storage keeps the discovery in the current page', async () => {
+  const context = await browser.newContext();
+  try {
+    await context.addInitScript(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === 'light-seed-game-discovered-echoes') throw new DOMException('Full', 'QuotaExceededError');
+        return original.call(this, key, value);
+      };
+    });
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    await page.locator('.journal summary').click();
+    assert.match(await page.locator('#journal-note').textContent(), /無法保存回聲/);
+    assert.match(await page.locator('#journal-entries').textContent(), /小花園/);
+    await page.reload();
+    assert.match(await page.locator('#journal-count').textContent(), /0 \/ 4/);
   } finally { await context.close(); }
 });
 

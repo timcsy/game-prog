@@ -83,7 +83,7 @@ collectLight();
             <button id="step" class="step-button" type="button"><span aria-hidden="true">▷|</span> 單步</button>
             <button id="reset" class="reset-button" type="button" aria-label="重設本次行動">重設</button>
           </div>
-          <p id="echo-log" class="echo-log" hidden></p>
+          <p id="echo-log" class="echo-log" role="status" aria-live="polite" hidden></p>
           <p id="editor-help" class="editor-help">一行一個指令。試著補上轉向、前進，再取回光種。</p>
           <p id="draft-help" class="draft-help">切換任務時會保留程式；重新載入頁面後不會保留。</p>
           <div class="command-drawer">
@@ -102,6 +102,11 @@ collectLight();
           <details class="field-note" open>
             <summary><span class="note-icon">✧</span> 小芽的任務筆記 <span class="chevron">⌄</span></summary>
             <div class="note-body" id="hint-copy"><code>moveForward();</code> 會依照小芽面向移動一格。先找出光種在哪一格，再安排方向和步數。</div>
+          </details>
+          <details class="field-note journal">
+            <summary><span class="note-icon">◇</span> 回聲日誌 <span id="journal-count">0 / 4</span> <span class="chevron">⌄</span></summary>
+            <p id="journal-note"></p>
+            <ul id="journal-entries"></ul>
           </details>
           <span id="progress-note" class="progress-note" role="status">通關時會嘗試在此瀏覽器保存進度</span>
         </aside>
