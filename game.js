@@ -417,7 +417,11 @@
       return { done: true, error: true };
     }
     setStatus(`${location}：${conditionFeedback}${status.textContent}`);
-    if (result.won) return { done: true, won: true };
+    if (result.won) {
+      // A successful gate ends the attempt even if source lines remain.
+      nextInstruction = program.length;
+      return { done: true, won: true };
+    }
     return { done: nextInstruction >= program.length };
   }
 

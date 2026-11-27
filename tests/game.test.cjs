@@ -66,6 +66,22 @@ test('three missions unlock, survive reload, and return focus on replay', async 
   } finally { await context.close(); }
 });
 
+test('winning ends the attempt even when instructions follow the gate', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill(`${solutions[0][0]}\nturnRight();`);
+    for (let i = 0; i < solutions[0][1]; i += 1) await page.locator('#step').click();
+    assert.equal(await page.locator('#win-card').isVisible(), true);
+    await page.locator('#step').click();
+    assert.equal(await page.locator('#win-card').isHidden(), true);
+    assert.match(await page.locator('#coordinates').textContent(), /X 02.*Y 05/);
+    assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /面向東方/);
+    assert.match(await page.locator('#goal-count').textContent(), /0 \/ 2/);
+  } finally { await context.close(); }
+});
+
 test('keyboard exploration and edited programs have consistent state', async () => {
   const context = await browser.newContext();
   try {
