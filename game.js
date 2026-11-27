@@ -103,6 +103,7 @@
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
   const COMPLETED_KEY = 'light-seed-game-completed-mission';
   const ECHO_KEY = 'light-seed-game-discovered-echoes';
+  const INTRO_KEY = 'light-seed-game-intro-seen';
   let storageAvailable = null;
   let echoStorageAvailable = null;
   function loadUnlockedMission() {
@@ -189,6 +190,8 @@
   const worldTitle = document.querySelector('#world-title');
   const sectorLabel = document.querySelector('#sector-label');
   const journeyDialog = document.querySelector('#journey-dialog');
+  const introDialog = document.querySelector('#intro-dialog');
+  const introStart = document.querySelector('#intro-start');
   const journeyMissions = document.querySelector('#journey-missions');
   const openJourneyButton = document.querySelector('#open-journey');
   const soundToggle = document.querySelector('#sound-toggle');
@@ -510,6 +513,17 @@
     renderJourney();
     if (!journeyDialog.open) journeyDialog.showModal();
     closeJourneyButton.focus();
+  }
+
+  function shouldShowIntro() {
+    if (highestUnlocked > 0 || knownEchoes.size > 0) return false;
+    try { return window.localStorage.getItem(INTRO_KEY) !== '1'; } catch { return true; }
+  }
+
+  function closeIntro() {
+    try { window.localStorage.setItem(INTRO_KEY, '1'); } catch { /* The game remains playable without storage. */ }
+    introDialog.close();
+    world.querySelector('.rover-tile')?.focus({ preventScroll: true });
   }
 
   function closeJourney() {
@@ -1104,6 +1118,17 @@
   });
   world.addEventListener('keydown', moveMapFocus);
   openJourneyButton.addEventListener('click', openJourney);
+  introStart.addEventListener('click', closeIntro);
+  introDialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeIntro();
+  });
+  introDialog.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeIntro();
+    }
+  });
   soundToggle.addEventListener('click', toggleSound);
   closeJourneyButton.addEventListener('click', closeJourney);
   journeyDialog.addEventListener('cancel', (event) => {
@@ -1152,4 +1177,8 @@
   updateMissionNavigation();
   initMap();
   updateGutter();
+  if (shouldShowIntro()) {
+    introDialog.showModal();
+    introStart.focus();
+  }
 })();
