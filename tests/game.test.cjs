@@ -153,6 +153,25 @@ test('narrow map fits and reset cancels a running program', async () => {
   } finally { await context.close(); }
 });
 
+test('the whole map fits its scene at desktop and phone sizes', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    for (const [width, height] of [[320, 700], [375, 812], [721, 900], [761, 600], [1440, 900]]) {
+      await page.setViewportSize({ width, height });
+      await page.goto(url);
+      const fits = await page.evaluate(() => {
+        const frame = document.querySelector('.world-frame').getBoundingClientRect();
+        const map = document.querySelector('.world').getBoundingClientRect();
+        return map.left >= frame.left - 1 && map.right <= frame.right + 1 &&
+          map.top >= frame.top - 1 && map.bottom <= frame.bottom + 1 &&
+          document.documentElement.scrollWidth <= innerWidth;
+      });
+      assert.equal(fits, true, `map should fit at ${width}×${height}`);
+    }
+  } finally { await context.close(); }
+});
+
 test('map exposes its rows and cells and distinguishes a wall from the map edge', async () => {
   const context = await browser.newContext();
   try {
@@ -189,6 +208,31 @@ test('touch players can insert and step through commands on a narrow screen', { 
     for (let i = 0; i < 3; i += 1) await page.locator('#step').tap();
     assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
     assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /光種，已收集/);
+  } finally { await context.close(); }
+});
+
+test('the scene reflects movement and collected gate energy, then resets', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    assert.equal(await page.locator('.seed-orb').count(), 2);
+    assert.equal(await page.locator('.seed-orb.filled').count(), 0);
+    await page.locator('#code').fill('moveForward();\nmoveForward();\ncollectLight();\nturnLeft();\nmoveForward();\nmoveForward();\ncollectLight();');
+    await page.locator('#step').click();
+    assert.equal(await page.locator('.rover.travelling').count(), 1);
+    await page.locator('#step').click();
+    await page.locator('#step').click();
+    assert.equal(await page.locator('.seed-orb.filled').count(), 1);
+    assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.equal(await page.locator('.seed-orb.filled').count(), 2);
+    assert.equal(await page.locator('.world-frame.energized').count(), 1);
+    await page.locator('#reset').click();
+    assert.equal(await page.locator('.seed-orb.filled').count(), 0);
+    assert.equal(await page.locator('.world-frame.energized').count(), 0);
+    assert.equal(await page.locator('.rover.travelling').count(), 0);
+    assert.match(await page.locator('#goal-count').textContent(), /0 \/ 2/);
   } finally { await context.close(); }
 });
 

@@ -60,7 +60,6 @@
     { x: 0, y: 1, name: '南' },
     { x: -1, y: 0, name: '西' },
   ];
-  const ARROWS = ['▲', '▲', '▲', '▲'];
   const COMMANDS = new Map([
     ['moveForward', moveForward],
     ['turnLeft', turnLeft],
@@ -81,6 +80,7 @@
   const status = document.querySelector('#status');
   const coordinates = document.querySelector('#coordinates');
   const goalCount = document.querySelector('#goal-count');
+  const seedOrbs = document.querySelector('#seed-orbs');
   const gutter = document.querySelector('#line-gutter');
   const help = document.querySelector('#editor-help');
   const toast = document.querySelector('#toast');
@@ -145,7 +145,7 @@
     drawWorld();
   }
 
-  function drawWorld() {
+  function drawWorld(previousPosition = null) {
     const focusedTile = world.contains(document.activeElement) ? document.activeElement : null;
     const keepRoverFocus = focusedTile?.classList.contains('rover-tile') ?? false;
     world.querySelectorAll('.tile').forEach((tile) => {
@@ -177,11 +177,27 @@
       (focusedTile && !keepRoverFocus ? focusedTile : roverTile).tabIndex = 0;
       const sprite = document.createElement('span');
       sprite.className = `rover dir-${rover.direction}`;
-      sprite.textContent = ARROWS[rover.direction];
       sprite.setAttribute('aria-hidden', 'true');
       roverTile.append(sprite);
+      if (previousPosition) {
+        const previousTile = tileAt(previousPosition.x, previousPosition.y);
+        if (previousTile) {
+          const from = previousTile.getBoundingClientRect();
+          const to = roverTile.getBoundingClientRect();
+          sprite.style.setProperty('--travel-x', `${from.left - to.left}px`);
+          sprite.style.setProperty('--travel-y', `${from.top - to.top}px`);
+          sprite.classList.add('travelling');
+        }
+      }
       if (keepRoverFocus) roverTile.focus({ preventScroll: true });
     }
+    seedOrbs.replaceChildren(...level().seeds.map((_, index) => {
+      const orb = document.createElement('span');
+      orb.className = collected.has(index) ? 'seed-orb filled' : 'seed-orb';
+      orb.textContent = '✦';
+      return orb;
+    }));
+    world.parentElement.classList.toggle('energized', collected.size === level().seeds.length);
     coordinates.textContent = `X ${String(rover.x + 1).padStart(2, '0')} · Y ${String(rover.y + 1).padStart(2, '0')}`;
     goalCount.textContent = `${collected.size} / ${level().seeds.length}`;
   }
@@ -214,9 +230,10 @@
     if (level().walls.has(`${x},${y}`)) {
       return { ok: false, message: '岩壁擋住了去路。改變方向，或看看地圖上的空隙。' };
     }
+    const previousPosition = { x: rover.x, y: rover.y };
     rover.x = x;
     rover.y = y;
-    drawWorld();
+    drawWorld(previousPosition);
     setStatus(`小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。`);
     return { ok: true };
   }

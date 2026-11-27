@@ -11,7 +11,7 @@
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="#top" aria-label="光種計畫首頁"><span class="brand-mark">✳</span> 光種計畫</a>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span> 光種計畫</div>
       <div class="top-progress">
         <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
         <nav class="mission-nav" aria-label="已解鎖任務">
@@ -20,33 +20,26 @@
           <button id="next-unlocked" type="button" aria-label="前往下一段已解鎖任務" disabled>→</button>
         </nav>
       </div>
-      <a class="plan-link" href="./knowledge/plan.md">開發計畫 <span aria-hidden="true">↗</span></a>
     </header>
 
     <main id="top">
-      <section class="mission-head" aria-labelledby="mission-title">
-        <div class="mission-copy">
-          <p class="eyebrow"><span class="signal"></span> <span id="field-log">SILENT PLANET / FIELD LOG 001</span></p>
-          <h1 id="mission-title" tabindex="-1">星球失去光了。<br /><em>交給你和小芽。</em></h1>
-          <p class="lead" id="mission-lead">導航門的光種散落在地表。寫下行動指令，帶領探測機小芽找回它們，重新點亮返航路線。</p>
-        </div>
-        <div class="mission-meta" aria-label="任務目標">
-          <span class="meta-label">MISSION OBJECTIVE</span>
-          <strong><span id="goal-count">0 / 2</span> 找回光種</strong>
-          <span class="meta-separator"></span>
-          <span class="meta-label">當前座標</span>
-          <strong id="coordinates">X 01 · Y 05</strong>
-        </div>
-      </section>
-
       <section class="workbench" aria-label="任務操作區">
         <div class="world-panel panel">
-          <div class="panel-head">
-            <div><span class="panel-index">01</span><span class="panel-title" id="world-title">沉睡星球 · 著陸區</span></div>
-            <span class="live-indicator"><i></i> LIVE</span>
-          </div>
+          <section class="mission-head" aria-labelledby="mission-title">
+            <div class="mission-copy">
+              <p class="eyebrow"><span id="world-title">沉睡星球 · 著陸區</span> <span id="field-log" class="visually-hidden">SILENT PLANET / FIELD LOG 001</span></p>
+              <h1 id="mission-title" tabindex="-1">星球失去光了。<br /><em>交給你和小芽。</em></h1>
+              <p class="lead" id="mission-lead">導航門的光種散落在地表。寫下行動指令，帶領探測機小芽找回它們，重新點亮返航路線。</p>
+            </div>
+            <div class="mission-meta" aria-label="任務目標">
+              <span class="meta-label">找回光種</span><strong id="goal-count">0 / 2</strong>
+              <span class="meta-label">小芽座標</span><strong id="coordinates">X 01 · Y 05</strong>
+            </div>
+          </section>
           <div class="world-frame">
             <div class="sky-glow" aria-hidden="true"></div>
+            <div class="planet-horizon" aria-hidden="true"></div>
+            <div class="world-hud" aria-hidden="true"><span>導航門能量</span><span id="seed-orbs" class="seed-orbs"></span></div>
             <div id="world" class="world" role="grid" aria-label="星球任務地圖" aria-describedby="map-help"></div>
             <div class="map-coords" aria-hidden="true"><span>N ↑</span><span>SECTOR 04-A</span></div>
             <div id="toast" class="toast" aria-hidden="true"></div>
@@ -66,13 +59,13 @@
             <span><i class="legend-rock">▰</i> 岩壁</span>
           </div>
           <p id="map-help" class="map-help">地圖可用方向鍵探索，按 Tab 繼續操作。</p>
-          <div class="status-strip"><span class="status-dot"></span><p id="status" role="status" aria-live="polite">著陸完成。先看看地圖，再決定小芽要怎麼走。</p></div>
+          <div class="status-strip"><span class="rover-avatar" aria-hidden="true">✦</span><span class="speaker">小芽</span><p id="status" role="status" aria-live="polite">著陸完成。先看看地圖，再決定小芽要怎麼走。</p></div>
         </div>
 
         <aside class="code-panel panel" aria-labelledby="code-title">
           <div class="panel-head">
-            <div><span class="panel-index">02</span><span id="code-title" class="panel-title">行動程式</span></div>
-            <span class="language-tag">JAVASCRIPT / STARTER</span>
+            <div><span class="console-icon" aria-hidden="true">⌘</span><span id="code-title" class="panel-title">小芽的行動指令</span></div>
+            <span class="language-tag">控制台</span>
           </div>
           <div class="editor-wrap">
             <div class="line-gutter" id="line-gutter" aria-hidden="true">1<br />2<br />3<br />4<br />5<br />6<br />7<br />8<br />9<br />10<br />11<br />12</div>
@@ -82,6 +75,11 @@ moveForward();
 collectLight();
 
 // 還有一顆光種和導航門等著你</textarea>
+          </div>
+          <div class="editor-actions">
+            <button id="run" class="run-button" type="button"><span aria-hidden="true">▶</span> 執行程式 <kbd>Ctrl ↵</kbd></button>
+            <button id="step" class="step-button" type="button"><span aria-hidden="true">▷|</span> 單步</button>
+            <button id="reset" class="reset-button" type="button" aria-label="重設本次行動">重設</button>
           </div>
           <p id="editor-help" class="editor-help">一行一個指令。試著補上轉向、前進，再取回光種。</p>
           <p id="draft-help" class="draft-help">切換任務時會保留程式；重新載入頁面後不會保留。</p>
@@ -98,22 +96,12 @@ collectLight();
               <button id="wall-condition" class="command condition-command" type="button" data-command="ifBlocked" hidden>if (pathAheadIsBlocked())<span>turnLeft();</span><b>遇岩壁左轉</b></button>
             </div>
           </div>
-          <div class="editor-actions">
-            <button id="run" class="run-button" type="button"><span aria-hidden="true">▶</span> 執行程式 <kbd>Ctrl ↵</kbd></button>
-            <button id="step" class="step-button" type="button"><span aria-hidden="true">▷|</span> 單步</button>
-            <button id="reset" class="reset-button" type="button" aria-label="重設本次行動">重設</button>
-          </div>
           <details class="field-note" open>
             <summary><span class="note-icon">✧</span> 小芽的任務筆記 <span class="chevron">⌄</span></summary>
             <div class="note-body" id="hint-copy"><code>moveForward();</code> 會依照小芽面向移動一格。先找出光種在哪一格，再安排方向和步數。</div>
           </details>
+          <span id="progress-note" class="progress-note" role="status">通關時會嘗試在此瀏覽器保存進度</span>
         </aside>
-      </section>
-
-      <section class="field-footer">
-        <p><span>TRANSMISSION END</span> 每一次嘗試，都會讓地圖多透露一點線索。</p>
-        <span id="progress-note" class="progress-note" role="status">通關時會嘗試在此瀏覽器保存進度</span>
-        <a href="./knowledge/experience.md">開發經驗 ↗</a>
       </section>
     </main>
   </body>
