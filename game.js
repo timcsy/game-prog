@@ -646,8 +646,15 @@
   }
 
   function insertCommand(command) {
-    const start = code.selectionStart;
-    const end = code.selectionEnd;
+    let start = code.selectionStart;
+    let end = code.selectionEnd;
+    if (start === end) {
+      const lineStart = code.value.lastIndexOf('\n', start - 1) + 1;
+      const nextBreak = code.value.indexOf('\n', start);
+      const lineEnd = nextBreak === -1 ? code.value.length : nextBreak;
+      // A collapsed cursor inside a line inserts after it, without splitting the instruction.
+      if (start > lineStart && start < lineEnd) start = end = lineEnd;
+    }
     const before = code.value.slice(0, start);
     const after = code.value.slice(end);
     const needsLeadingBreak = before.length > 0 && !before.endsWith('\n');
@@ -659,6 +666,15 @@
     };
     const call = snippets[command] ?? `${command}();`;
     const insertion = `${needsLeadingBreak ? '\n' : ''}${call}${needsTrailingBreak ? '\n' : ''}`;
+    if (code.maxLength >= 0 && before.length + insertion.length + after.length > code.maxLength) {
+      const message = `程式最多 ${code.maxLength} 個字，先刪減一些內容再插入。`;
+      setStatus(message, 'error');
+      help.textContent = message;
+      help.classList.add('error-text');
+      showToast(message, 'error');
+      code.focus();
+      return;
+    }
     code.setRangeText(insertion, start, end, 'end');
     code.focus();
     onCodeChanged();

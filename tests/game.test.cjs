@@ -489,6 +489,30 @@ test('mission switching preserves each in-page draft, including empty and insert
   } finally { await context.close(); }
 });
 
+test('command insertion preserves a line at the cursor and respects the editor limit', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    const editor = page.locator('#code');
+    await editor.fill('moveForward();\ncollectLight();');
+    await editor.evaluate((element) => { element.focus(); element.setSelectionRange(4, 4); });
+    await page.locator('[data-command="turnLeft"]').click();
+    assert.equal(await editor.inputValue(), 'moveForward();\nturnLeft();\ncollectLight();');
+    await editor.evaluate((element) => {
+      const start = element.value.indexOf('turnLeft();');
+      element.setSelectionRange(start, start + 'turnLeft();'.length);
+    });
+    await page.locator('[data-command="turnRight"]').click();
+    assert.equal(await editor.inputValue(), 'moveForward();\nturnRight();\ncollectLight();');
+    const full = 'x'.repeat(1199);
+    await editor.fill(full);
+    await page.locator('[data-command="moveForward"]').click();
+    assert.equal(await editor.inputValue(), full);
+    assert.match(await page.locator('#status').textContent(), /最多 1200 個字/);
+  } finally { await context.close(); }
+});
+
 test('switching missions interrupts execution without losing the edited program', async () => {
   const context = await browser.newContext();
   try {
