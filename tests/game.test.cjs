@@ -247,6 +247,62 @@ test('players can pause, step, and resume a running program', async () => {
   } finally { await context.close(); }
 });
 
+test('the journey map shows progress, navigates, and pauses playback', async () => {
+  const context = await browser.newContext({ viewport: { width: 320, height: 700 } });
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#open-journey').click();
+    assert.equal(await page.locator('#journey-dialog').evaluate((dialog) => dialog.open), true);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'close-journey');
+    assert.equal(await page.locator('.journey-step').count(), 6);
+    assert.equal(await page.locator('.journey-step:disabled').count(), 5);
+    assert.equal(await page.evaluate(() => document.querySelector('#journey-dialog').getBoundingClientRect().width <= innerWidth), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'open-journey');
+
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '3'));
+    await page.reload();
+    await page.locator('#open-journey').click();
+    assert.equal(await page.locator('.journey-step:disabled').count(), 2);
+    await page.locator('.journey-step[data-mission="1"]').click();
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 06/);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'mission-title');
+    await page.locator('#code').fill(Array(6).fill('turnRight();').join('\n'));
+    await page.locator('#run').click();
+    await page.locator('#open-journey').click();
+    assert.match(await page.locator('#status').textContent(), /已暫停/);
+    const before = await page.locator('.rover-tile').getAttribute('aria-label');
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator('.rover-tile').getAttribute('aria-label'), before);
+    await page.keyboard.press('Escape');
+    assert.match(await page.locator('#run').textContent(), /繼續執行/);
+    await page.locator('#open-journey').click();
+    await page.locator('.journey-step[data-mission="1"]').click();
+    assert.equal(await page.locator('.rover-tile').getAttribute('aria-label'), before);
+    assert.match(await page.locator('#run').textContent(), /繼續執行/);
+    await page.locator('#open-journey').click();
+    await page.locator('#journey-dialog').evaluate((dialog) => dialog.dispatchEvent(new Event('cancel', { cancelable: true })));
+    assert.equal(await page.locator('#journey-dialog').evaluate((dialog) => dialog.open), false);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'open-journey');
+  } finally { await context.close(); }
+});
+
+test('journey focus survives progress updates from another tab', async () => {
+  const context = await browser.newContext();
+  try {
+    const first = await context.newPage();
+    const second = await context.newPage();
+    await first.goto(url);
+    await second.goto(url);
+    await first.locator('#open-journey').click();
+    await first.locator('.journey-step[data-mission="0"]').focus();
+    await second.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '2'));
+    await first.waitForFunction(() => !document.querySelector('[data-mission="2"]').disabled);
+    assert.equal(await first.evaluate(() => document.activeElement.dataset.mission), '0');
+  } finally { await context.close(); }
+});
+
 test('the whole map fits its scene at desktop and phone sizes', async () => {
   const context = await browser.newContext();
   try {

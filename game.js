@@ -187,6 +187,10 @@
   const missionLead = document.querySelector('#mission-lead');
   const worldTitle = document.querySelector('#world-title');
   const sectorLabel = document.querySelector('#sector-label');
+  const journeyDialog = document.querySelector('#journey-dialog');
+  const journeyMissions = document.querySelector('#journey-missions');
+  const openJourneyButton = document.querySelector('#open-journey');
+  const closeJourneyButton = document.querySelector('#close-journey');
   const hintCopy = document.querySelector('#hint-copy');
   const repeatCommand = document.querySelector('#repeat-command');
   const lightCondition = document.querySelector('#light-condition');
@@ -377,6 +381,47 @@
       ? '無法保存回聲；目前只保留在此頁面。'
       : echoStorageAvailable === true ? '回聲保存在此瀏覽器；重設行動不會清除。'
         : '發現時會嘗試保存在此瀏覽器；重設行動不會清除。';
+    if (journeyDialog.open) renderJourney();
+  }
+
+  function renderJourney() {
+    const focusedMission = journeyMissions.contains(document.activeElement) ? document.activeElement.dataset.mission : undefined;
+    journeyMissions.replaceChildren(...LEVELS.map((mission, index) => {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      const unlocked = index <= highestUnlocked;
+      button.type = 'button';
+      button.className = 'journey-step';
+      button.disabled = !unlocked;
+      button.dataset.mission = String(index);
+      if (index === levelIndex) button.setAttribute('aria-current', 'step');
+      const number = document.createElement('span');
+      number.className = 'journey-number';
+      number.textContent = String(index + 1).padStart(2, '0');
+      const name = document.createElement('span');
+      name.className = 'journey-name';
+      name.textContent = unlocked ? mission.name : '未知訊號';
+      const detail = document.createElement('span');
+      detail.className = 'journey-detail';
+      detail.textContent = !unlocked ? '尚未解鎖' : index <= highestCompleted ? '已完成' : '可探索';
+      if (unlocked && knownEchoes.has(index)) detail.textContent += ' · ◇ 已發現';
+      button.append(number, name, detail);
+      item.append(button);
+      return item;
+    }));
+    if (focusedMission !== undefined) journeyMissions.querySelector(`button[data-mission="${focusedMission}"]`)?.focus();
+  }
+
+  function openJourney() {
+    if (busy) pauseProgram();
+    renderJourney();
+    if (!journeyDialog.open) journeyDialog.showModal();
+    closeJourneyButton.focus();
+  }
+
+  function closeJourney() {
+    journeyDialog.close();
+    openJourneyButton.focus();
   }
 
   function showToast(message, type = 'normal') {
@@ -914,12 +959,33 @@
       highestUnlocked = Math.max(highestUnlocked, savedUnlocked, Math.min(highestCompleted + 1, LEVELS.length - 1));
       updateMissionNavigation();
       updateProgressNote();
+      if (journeyDialog.open) renderJourney();
     } else if (event.key === ECHO_KEY && event.newValue !== null) {
       // Merge discoveries from other tabs, including any local discoveries not in that write.
       saveEchoes();
     }
   });
   world.addEventListener('keydown', moveMapFocus);
+  openJourneyButton.addEventListener('click', openJourney);
+  closeJourneyButton.addEventListener('click', closeJourney);
+  journeyDialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeJourney();
+  });
+  journeyDialog.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeJourney();
+    }
+  });
+  journeyMissions.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-mission]');
+    if (!button || button.disabled) return;
+    const index = Number(button.dataset.mission);
+    journeyDialog.close();
+    if (index !== levelIndex) enterMission(index);
+    else openJourneyButton.focus();
+  });
   stepButton.addEventListener('click', singleStep);
   resetButton.addEventListener('click', resetMission);
   document.querySelector('#replay-win').addEventListener('click', () => {

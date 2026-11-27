@@ -14,6 +14,7 @@
       <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span> 光種計畫</div>
       <div class="top-progress">
         <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
+        <button id="open-journey" class="journey-open" type="button" aria-haspopup="dialog">旅程地圖</button>
         <nav class="mission-nav" aria-label="已解鎖任務">
           <button id="previous-mission" type="button" aria-label="回到上一段已解鎖任務" disabled>←</button>
           <span id="mission-position" aria-live="polite">01 / 06</span>
@@ -114,5 +115,13 @@ collectLight();
         </aside>
       </section>
     </main>
+    <dialog id="journey-dialog" class="journey-dialog" aria-labelledby="journey-title" aria-describedby="journey-intro">
+      <div class="journey-head">
+        <div><p class="journey-eyebrow">SILENT PLANET / JOURNEY</p><h2 id="journey-title">小芽的旅程</h2></div>
+        <button id="close-journey" class="journey-close" type="button" aria-label="關閉旅程地圖">×</button>
+      </div>
+      <p id="journey-intro">沿著訊號探索星球。選擇已解鎖的區域，就能回到那段旅程。</p>
+      <ol id="journey-missions" class="journey-missions"></ol>
+    </dialog>
   </body>
 </html>
