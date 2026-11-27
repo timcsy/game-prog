@@ -162,6 +162,7 @@
   const code = document.querySelector('#code');
   const runButton = document.querySelector('#run');
   const stepButton = document.querySelector('#step');
+  const undoButton = document.querySelector('#undo');
   const resetButton = document.querySelector('#reset');
   const status = document.querySelector('#status');
   const coordinates = document.querySelector('#coordinates');
@@ -212,6 +213,7 @@
   let gateOpen = false;
   let program = null;
   let nextInstruction = 0;
+  let history = [];
   let busy = false;
   let hasActionError = false;
   let runId = 0;
@@ -652,6 +654,7 @@
     collected = new Set();
     echoFound = false;
     activeSwitches = new Set();
+    history = [];
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -693,6 +696,16 @@
 
   function executeNext() {
     if (!program || nextInstruction >= program.length) return { done: true };
+    history.push({
+      rover: { ...rover },
+      crate: crate ? { ...crate } : null,
+      collected: new Set(collected),
+      visited: new Set(visited),
+      echoFound,
+      activeSwitches: new Set(activeSwitches),
+      nextInstruction,
+      previousLine: nextInstruction > 0 ? program[nextInstruction - 1].line : null,
+    });
     const instruction = program[nextInstruction];
     nextInstruction += 1;
     highlightLine(instruction.line);
@@ -737,6 +750,7 @@
 
   function updateRunButton() {
     const canResume = program && nextInstruction > 0 && nextInstruction < program.length;
+    undoButton.disabled = busy || history.length === 0;
     runButton.classList.toggle('is-pausing', busy);
     runButton.innerHTML = busy
       ? '<span aria-hidden="true">Ⅱ</span> 暫停行動'
@@ -781,11 +795,36 @@
     updateRunButton();
   }
 
+  function undoStep() {
+    if (busy || !program || history.length === 0) return;
+    runId += 1;
+    const snapshot = history.pop();
+    rover = snapshot.rover;
+    crate = snapshot.crate;
+    collected = snapshot.collected;
+    visited = snapshot.visited;
+    echoFound = snapshot.echoFound;
+    activeSwitches = snapshot.activeSwitches;
+    nextInstruction = snapshot.nextInstruction;
+    gateOpen = false;
+    hasActionError = false;
+    winCard.hidden = true;
+    world.hidden = false;
+    toast.classList.remove('show');
+    drawWorld();
+    highlightLine(snapshot.previousLine);
+    help.classList.remove('error-text');
+    help.textContent = `已退回；下一步從第 ${program[nextInstruction].line} 行繼續。`;
+    setStatus(`已退回 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。回聲和解鎖進度保留。`);
+    updateRunButton();
+  }
+
   function resetMission() {
     runId += 1;
     setBusy(false);
     program = null;
     nextInstruction = 0;
+    history = [];
     updateRunButton();
     rover = { ...level().start };
     crate = level().crate ? { ...level().crate } : null;
@@ -845,6 +884,7 @@
     missionDrafts[levelIndex] = code.value;
     program = null;
     nextInstruction = 0;
+    history = [];
     updateRunButton();
     updateGutter();
     help.classList.remove('error-text');
@@ -877,6 +917,7 @@
     levelIndex = index;
     program = null;
     nextInstruction = 0;
+    history = [];
     updateRunButton();
     rover = { ...level().start };
     crate = level().crate ? { ...level().crate } : null;
@@ -987,6 +1028,7 @@
     else openJourneyButton.focus();
   });
   stepButton.addEventListener('click', singleStep);
+  undoButton.addEventListener('click', undoStep);
   resetButton.addEventListener('click', resetMission);
   document.querySelector('#replay-win').addEventListener('click', () => {
     resetMission();

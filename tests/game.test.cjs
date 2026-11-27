@@ -247,6 +247,117 @@ test('players can pause, step, and resume a running program', async () => {
   } finally { await context.close(); }
 });
 
+test('undo restores movement and collection, and editing clears history', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    assert.equal(await page.locator('#undo').isDisabled(), true);
+    await page.locator('#code').fill('moveForward();\nmoveForward();\ncollectLight();');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
+    await page.locator('#undo').click();
+    assert.match(await page.locator('#goal-count').textContent(), /0 \/ 2/);
+    assert.match(await page.locator('.rover-tile').getAttribute('aria-label'), /光種/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#goal-count').textContent(), /1 \/ 2/);
+    await page.locator('#undo').click();
+    await page.locator('#undo').click();
+    assert.match(await page.locator('#coordinates').textContent(), /X 02.*Y 05/);
+    assert.equal(await page.locator('.tile.visited').count(), 2);
+    await page.locator('#code').fill('turnLeft();');
+    assert.equal(await page.locator('#undo').isDisabled(), true);
+    await page.locator('#code').fill('moveForward();\nmoveForward();\nmoveForward();');
+    for (let i = 0; i < 3; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /岩壁/);
+    await page.locator('#undo').click();
+    assert.match(await page.locator('#editor-help').textContent(), /第 3 行/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /岩壁/);
+  } finally { await context.close(); }
+});
+
+test('undo after pausing is not affected by an old playback timer', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill(Array(6).fill('turnRight();').join('\n'));
+    await page.locator('#run').click();
+    assert.equal(await page.locator('#undo').isDisabled(), true);
+    await page.locator('#run').click();
+    const paused = await page.locator('.rover-tile').getAttribute('aria-label');
+    await page.locator('#undo').click();
+    const restored = await page.locator('.rover-tile').getAttribute('aria-label');
+    assert.notEqual(restored, paused);
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator('.rover-tile').getAttribute('aria-label'), restored);
+  } finally { await context.close(); }
+});
+
+test('undo restores repeated actions and keeps discovered stories', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    await page.locator('#undo').click();
+    assert.match(await page.locator('.echo').getAttribute('aria-label'), /走過可發現/);
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 6/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('.echo').getAttribute('aria-label'), /已發現/);
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 6/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '1'));
+    await page.reload();
+    await page.locator('#code').fill('repeat(2, moveForward);');
+    await page.locator('#step').click();
+    await page.locator('#step').click();
+    await page.locator('#undo').click();
+    assert.match(await page.locator('#coordinates').textContent(), /X 02.*Y 05/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /第 2 \/ 2 次/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '2'));
+    await page.reload();
+    await page.locator('#code').fill('if (lightIsPresent()) collectLight();\nmoveForward();');
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件不成立/);
+    await page.locator('#undo').click();
+    await page.locator('#step').click();
+    assert.match(await page.locator('#status').textContent(), /條件不成立/);
+  } finally { await context.close(); }
+});
+
+test('undo reverses a crystal push and a win without relocking progress', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '5'));
+    await page.reload();
+    await page.locator('#code').fill('turnRight();\nmoveForward();\nturnLeft();\nrepeat(2, moveForward);\nturnLeft();\nmoveForward();\nmoveForward();');
+    for (let i = 0; i < 7; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /已打開/);
+    await page.locator('#step').click();
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /關閉/);
+    await page.locator('#undo').click();
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /已打開/);
+    assert.match(await page.locator('.pressure-plate').getAttribute('aria-label'), /光晶已放上/);
+    await page.locator('#undo').click();
+    assert.match(await page.locator('.barrier').getAttribute('aria-label'), /關閉/);
+    assert.match(await page.locator('[data-x="2"][data-y="4"]').getAttribute('aria-label'), /光晶/);
+    await page.locator('#previous-mission').click();
+    for (let i = 0; i < 4; i += 1) await page.locator('#previous-mission').click();
+    await complete(page, 0);
+    await page.locator('#undo').click();
+    assert.equal(await page.locator('#win-card').isHidden(), true);
+    assert.equal(await page.locator('#world').isVisible(), true);
+    assert.equal(await page.locator('#next-unlocked').isEnabled(), true);
+    await page.locator('#step').click();
+    assert.equal(await page.locator('#win-card').isVisible(), true);
+  } finally { await context.close(); }
+});
+
 test('the journey map shows progress, navigates, and pauses playback', async () => {
   const context = await browser.newContext({ viewport: { width: 320, height: 700 } });
   try {
