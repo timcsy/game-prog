@@ -15,6 +15,7 @@ const assets = new Map([
   ['/assets/valley.svg', ['assets/valley.svg', 'image/svg+xml']],
   ['/assets/signal.svg', ['assets/signal.svg', 'image/svg+xml']],
   ['/assets/ruins.svg', ['assets/ruins.svg', 'image/svg+xml']],
+  ['/assets/core.svg', ['assets/core.svg', 'image/svg+xml']],
 ]);
 let server, browser, url;
 
@@ -41,6 +42,7 @@ const solutions = [
   ['repeat(2, moveForward);\ncollectLight();\nrepeat(2, moveForward);\ncollectLight();\nrepeat(2, moveForward);\nopenGate();', 9],
   ['if (lightIsPresent()) collectLight();\nrepeat(2, moveForward);\nif (lightIsPresent()) collectLight();\nif (pathAheadIsBlocked()) turnLeft();\nrepeat(2, moveForward);\nif (lightIsPresent()) collectLight();\nturnRight();\nrepeat(4, moveForward);\nopenGate();', 14],
   ['repeat(2, moveForward);\ncollectLight();\nturnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\ncollectLight();\nrepeat(2, moveForward);\nopenGate();', 13],
+  ['repeat(2, moveForward);\ncollectLight();\nturnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\nturnLeft();\nmoveForward();\nturnRight();\nturnRight();\nmoveForward();\nturnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\ncollectLight();\nturnRight();\nturnRight();\nrepeat(2, moveForward);\nopenGate();', 26],
 ];
 
 async function complete(page, index) {
@@ -50,7 +52,7 @@ async function complete(page, index) {
   assert.equal(await page.locator('#win-card').isVisible(), true);
 }
 
-test('four missions unlock, survive reload, and return focus on replay', async () => {
+test('five missions unlock, survive reload, and return focus on replay', async () => {
   const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
   try {
     const page = await context.newPage();
@@ -61,12 +63,14 @@ test('four missions unlock, survive reload, and return focus on replay', async (
     assert.equal(await page.evaluate(() => document.activeElement.id), 'next-mission');
     await page.locator('#next-mission').click();
     await page.reload();
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 05/);
     await complete(page, 1);
     await page.locator('#next-mission').click();
     await complete(page, 2);
     await page.locator('#next-mission').click();
     await complete(page, 3);
+    await page.locator('#next-mission').click();
+    await complete(page, 4);
     assert.equal(await page.evaluate(() => document.activeElement.id), 'replay-win');
     await page.locator('#replay-win').click();
     assert.equal(await page.evaluate(() => document.activeElement.id), 'code');
@@ -142,7 +146,7 @@ test('invalid input and unavailable storage keep the game usable', async () => {
     assert.match(await page.locator('#coordinates').textContent(), /X 01.*Y 05/);
     await complete(page, 0);
     await page.locator('#next-mission').click();
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 05/);
   } finally { await context.close(); }
 });
 
@@ -227,10 +231,11 @@ test('each unlocked area shows its own available scene art', async () => {
   try {
     const page = await context.newPage();
     await page.goto(url);
-    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '3'));
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '4'));
     await page.reload();
-    for (const scene of ['ruins', 'signal', 'valley', 'landing']) {
+    for (const [index, scene] of ['core', 'ruins', 'signal', 'valley', 'landing'].entries()) {
       assert.equal(await page.locator('.world-panel').getAttribute('data-scene'), scene);
+      assert.equal(await page.locator('#sector-label').textContent(), `SECTOR 0${5 - index}-A`);
       const artUrl = await page.locator('.scene-art').evaluate((element) => {
         return getComputedStyle(element).backgroundImage.slice(5, -2);
       });
@@ -352,6 +357,11 @@ test('optional echoes reward exploration and reset with each attempt', async () 
     await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
     for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
     assert.match(await page.locator('#echo-log').textContent(), /光閘曾守護/);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '4'));
+    await page.reload();
+    await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
+    for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
+    assert.match(await page.locator('#echo-log').textContent(), /星核曾將光/);
   } finally { await context.close(); }
 });
 
@@ -385,6 +395,31 @@ test('a switch opens the barrier and the sensor observes both states', async () 
   } finally { await context.close(); }
 });
 
+test('the two switches independently open their matching barriers', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '4'));
+    await page.reload();
+    const gateA = page.locator('.barrier[data-mechanism="A"]');
+    const gateB = page.locator('.barrier[data-mechanism="B"]');
+    await page.locator('#code').fill('repeat(2, moveForward);\nturnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\nmoveForward();');
+    for (let i = 0; i < 9; i += 1) await page.locator('#step').click();
+    assert.match(await gateA.getAttribute('aria-label'), /已打開/);
+    assert.match(await gateB.getAttribute('aria-label'), /關閉/);
+    assert.match(await page.locator('#status').textContent(), /光閘擋住.*開關 B/);
+    await page.locator('#code').fill('repeat(2, moveForward);\nturnLeft();\nrepeat(2, moveForward);\nturnRight();\nrepeat(2, moveForward);\nturnLeft();\nmoveForward();');
+    for (let i = 0; i < 10; i += 1) await page.locator('#step').click();
+    assert.match(await gateA.getAttribute('aria-label'), /已打開/);
+    assert.match(await gateB.getAttribute('aria-label'), /已打開/);
+    assert.match(await page.locator('#status').textContent(), /開關 B.*光閘打開/);
+    await page.locator('#reset').click();
+    assert.match(await gateA.getAttribute('aria-label'), /關閉/);
+    assert.match(await gateB.getAttribute('aria-label'), /關閉/);
+  } finally { await context.close(); }
+});
+
 test('discovered stories remain in the journal after reset and reload', async () => {
   const context = await browser.newContext();
   try {
@@ -392,14 +427,14 @@ test('discovered stories remain in the journal after reset and reload', async ()
     await page.goto(url);
     await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
     for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
-    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 5/);
     await page.locator('.journal summary').click();
     assert.match(await page.locator('#journal-entries').textContent(), /小花園/);
     await page.locator('#reset').click();
-    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 5/);
     await page.reload();
     await page.locator('.journal summary').click();
-    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 5/);
     assert.match(await page.locator('#journal-entries').textContent(), /小花園/);
     assert.equal(await page.locator('#echo-log').isHidden(), true);
   } finally { await context.close(); }
@@ -419,8 +454,8 @@ test('echo discoveries merge across tabs without losing either story', async () 
     for (let i = 0; i < 3; i += 1) await Promise.all([first.locator('#step').click(), second.locator('#step').click()]);
     await second.locator('#step').click();
     await Promise.all([first.locator('#step').click(), second.locator('#step').click()]);
-    await first.waitForFunction(() => document.querySelector('#journal-count').textContent === '2 / 4');
-    await second.waitForFunction(() => document.querySelector('#journal-count').textContent === '2 / 4');
+    await first.waitForFunction(() => document.querySelector('#journal-count').textContent === '2 / 5');
+    await second.waitForFunction(() => document.querySelector('#journal-count').textContent === '2 / 5');
     assert.deepEqual(await first.evaluate(() => JSON.parse(localStorage.getItem('light-seed-game-discovered-echoes'))), [0, 1]);
   } finally { await context.close(); }
 });
@@ -439,12 +474,12 @@ test('unavailable echo storage keeps the discovery in the current page', async (
     await page.goto(url);
     await page.locator('#code').fill('turnLeft();\nmoveForward();\nturnRight();\nmoveForward();');
     for (let i = 0; i < 4; i += 1) await page.locator('#step').click();
-    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 4/);
+    assert.match(await page.locator('#journal-count').textContent(), /1 \/ 5/);
     await page.locator('.journal summary').click();
     assert.match(await page.locator('#journal-note').textContent(), /無法保存回聲/);
     assert.match(await page.locator('#journal-entries').textContent(), /小花園/);
     await page.reload();
-    assert.match(await page.locator('#journal-count').textContent(), /0 \/ 4/);
+    assert.match(await page.locator('#journal-count').textContent(), /0 \/ 5/);
   } finally { await context.close(); }
 });
 
@@ -527,7 +562,7 @@ test('switching missions interrupts execution without losing the edited program'
     await page.locator('#run').click();
     await page.locator('#next-unlocked').click();
     await page.waitForTimeout(600);
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 05/);
     assert.match(await page.locator('#coordinates').textContent(), /X 01.*Y 05/);
     assert.equal(await page.locator('#run').isEnabled(), true);
     await page.locator('#previous-mission').click();
@@ -546,7 +581,7 @@ test('a storage write failure still permits in-session progression', async () =>
     await complete(page, 0);
     assert.match(await page.locator('#progress-note').textContent(), /無法保存/);
     await page.locator('#next-mission').click();
-    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 04/);
+    assert.match(await page.locator('#mission-position').textContent(), /02 \/ 05/);
   } finally { await context.close(); }
 });
 

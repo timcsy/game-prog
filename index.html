@@ -16,7 +16,7 @@
         <span class="top-note" id="top-note"><i></i> 任務 01 · 初次接觸</span>
         <nav class="mission-nav" aria-label="已解鎖任務">
           <button id="previous-mission" type="button" aria-label="回到上一段已解鎖任務" disabled>←</button>
-          <span id="mission-position" aria-live="polite">01 / 04</span>
+          <span id="mission-position" aria-live="polite">01 / 05</span>
           <button id="next-unlocked" type="button" aria-label="前往下一段已解鎖任務" disabled>→</button>
         </nav>
       </div>
@@ -42,7 +42,7 @@
             <div class="planet-horizon" aria-hidden="true"></div>
             <div class="world-hud" aria-hidden="true"><span>導航門能量</span><span id="seed-orbs" class="seed-orbs"></span></div>
             <div id="world" class="world" role="grid" aria-label="星球任務地圖" aria-describedby="map-help"></div>
-            <div class="map-coords" aria-hidden="true"><span>N ↑</span><span>SECTOR 04-A</span></div>
+            <div class="map-coords" aria-hidden="true"><span>N ↑</span><span id="sector-label">SECTOR 01-A</span></div>
             <div id="toast" class="toast" aria-hidden="true"></div>
             <div id="win-card" class="win-card" hidden>
               <span class="win-spark">✦</span>
@@ -106,7 +106,7 @@ collectLight();
             <div class="note-body" id="hint-copy"><code>moveForward();</code> 會依照小芽面向移動一格。先找出光種在哪一格，再安排方向和步數。</div>
           </details>
           <details class="field-note journal">
-            <summary><span class="note-icon">◇</span> 回聲日誌 <span id="journal-count">0 / 4</span> <span class="chevron">⌄</span></summary>
+            <summary><span class="note-icon">◇</span> 回聲日誌 <span id="journal-count">0 / 5</span> <span class="chevron">⌄</span></summary>
             <p id="journal-note"></p>
             <ul id="journal-entries"></ul>
           </details>

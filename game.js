@@ -51,18 +51,36 @@
       name: '喚醒光閘',
       scene: 'ruins',
       title: '路被封住了。<br /><em>讓星球替你開路。</em>',
-      lead: '踩上 ◉ 開關，打開紫色光閘，再找光種與導航門。',
+      lead: '踩上 ◉ A 開關，打開紫色光閘，再找光種與導航門。',
       area: '沉睡星球 · 星光遺跡',
       start: { x: 0, y: 4, direction: 1 },
       seeds: [{ x: 2, y: 4 }, { x: 4, y: 2 }],
       gate: { x: 6, y: 2 },
       echo: { x: 1, y: 3, story: '光閘曾守護星球的花園，等待有人重新點亮道路。' },
-      switchTile: { x: 2, y: 3 },
-      barrier: { x: 3, y: 2 },
+      mechanisms: [{ id: 'A', switchTile: { x: 2, y: 3 }, barrier: { x: 3, y: 2 } }],
       walls: new Set(['3,0', '3,1', '3,3', '3,4', '3,5', '1,1', '4,4', '5,4', '5,1']),
       starter: '// 踏上 ◉ 能量開關，就能打開光閘\nrepeat(2, moveForward);\ncollectLight();\n\n// 找到開關，再帶小芽前往導航門',
       hint: '光閘會擋住小芽。先走到 ◉ 開關所在的格子，光閘就會打開；<code>pathAheadIsBlocked()</code> 也能感測關閉的光閘。',
       instruction: '找出開關和光閘，安排一條能取回光種的路。',
+    },
+    {
+      name: '星核之路',
+      scene: 'core',
+      title: '兩道光閘。<br /><em>把路一段段點亮。</em>',
+      lead: '先踩上 A 開關打開 A 光閘，再尋找 B 開關，穿過 B 光閘找回光種。',
+      area: '沉睡星球 · 星核通道',
+      start: { x: 0, y: 4, direction: 1 },
+      seeds: [{ x: 2, y: 4 }, { x: 6, y: 4 }],
+      gate: { x: 6, y: 2 },
+      echo: { x: 1, y: 3, story: '星核曾將光送往每座花園；每一道光閘都由相同記號的開關守護。' },
+      mechanisms: [
+        { id: 'A', switchTile: { x: 2, y: 3 }, barrier: { x: 3, y: 2 } },
+        { id: 'B', switchTile: { x: 4, y: 1 }, barrier: { x: 5, y: 2 } },
+      ],
+      walls: new Set(['3,0', '3,1', '3,3', '3,4', '3,5', '5,0', '5,1', '5,3', '5,4', '5,5', '1,1']),
+      starter: '// 相同字母的開關會打開對應光閘\nrepeat(2, moveForward);\ncollectLight();\n\n// 找到 A，再前往 B 與第二顆光種',
+      hint: 'A 開關只控制 A 光閘，B 開關只控制 B 光閘。先在地圖上找出兩組位置，必要時可用單步觀察道路變化。',
+      instruction: '先後啟動兩組開關，再找齊光種並回到導航門。',
     },
   ];
   const PROGRESS_KEY = 'light-seed-game-unlocked-mission';
@@ -139,6 +157,7 @@
   const missionTitle = document.querySelector('#mission-title');
   const missionLead = document.querySelector('#mission-lead');
   const worldTitle = document.querySelector('#world-title');
+  const sectorLabel = document.querySelector('#sector-label');
   const hintCopy = document.querySelector('#hint-copy');
   const repeatCommand = document.querySelector('#repeat-command');
   const lightCondition = document.querySelector('#light-condition');
@@ -153,7 +172,7 @@
   let visited = new Set([`${rover.x},${rover.y}`]);
   let collected = new Set();
   let echoFound = false;
-  let switchActive = false;
+  let activeSwitches = new Set();
   let gateOpen = false;
   let program = null;
   let nextInstruction = 0;
@@ -180,8 +199,8 @@
         const isSeed = level().seeds.some((seed) => seed.x === x && seed.y === y);
         const isGate = level().gate.x === x && level().gate.y === y;
         const isEcho = level().echo.x === x && level().echo.y === y;
-        const isSwitch = level().switchTile?.x === x && level().switchTile?.y === y;
-        const isBarrier = level().barrier?.x === x && level().barrier?.y === y;
+        const switchMechanism = (level().mechanisms ?? []).find((item) => item.switchTile.x === x && item.switchTile.y === y);
+        const barrierMechanism = (level().mechanisms ?? []).find((item) => item.barrier.x === x && item.barrier.y === y);
         if (isWall) {
           tile.classList.add('wall');
         } else {
@@ -189,8 +208,16 @@
           if (isSeed) tile.classList.add('seed');
           if (isGate) tile.classList.add('gate');
           if (isEcho) tile.classList.add('echo');
-          if (isSwitch) tile.classList.add('switch-tile');
-          if (isBarrier) tile.classList.add('barrier');
+          if (switchMechanism || barrierMechanism) {
+            const mechanism = switchMechanism ?? barrierMechanism;
+            tile.classList.add(switchMechanism ? 'switch-tile' : 'barrier');
+            tile.dataset.mechanism = mechanism.id;
+            const label = document.createElement('span');
+            label.className = 'mechanism-label';
+            label.setAttribute('aria-hidden', 'true');
+            label.textContent = mechanism.id;
+            tile.append(label);
+          }
         }
         row.append(tile);
       }
@@ -213,8 +240,10 @@
       if (seedIndex !== -1) landmarks.push(`光種${collected.has(seedIndex) ? '，已收集' : ''}`);
       if (x === level().gate.x && y === level().gate.y) landmarks.push(`導航門${gateOpen ? '，已啟動' : ''}`);
       if (x === level().echo.x && y === level().echo.y) landmarks.push(`星球回聲${echoFound ? '，已發現' : '，走過可發現'}`);
-      if (x === level().switchTile?.x && y === level().switchTile?.y) landmarks.push(`能量開關${switchActive ? '，已啟動' : '，走上可啟動'}`);
-      if (x === level().barrier?.x && y === level().barrier?.y) landmarks.push(`光閘${switchActive ? '，已打開' : '，關閉中'}`);
+      const switchMechanism = (level().mechanisms ?? []).find((item) => item.switchTile.x === x && item.switchTile.y === y);
+      const barrierMechanism = (level().mechanisms ?? []).find((item) => item.barrier.x === x && item.barrier.y === y);
+      if (switchMechanism) landmarks.push(`能量開關 ${switchMechanism.id}${activeSwitches.has(switchMechanism.id) ? '，已啟動' : '，走上可啟動'}`);
+      if (barrierMechanism) landmarks.push(`光閘 ${barrierMechanism.id}${activeSwitches.has(barrierMechanism.id) ? '，已打開' : '，關閉中'}`);
       if (x === rover.x && y === rover.y) landmarks.unshift(`小芽，面向${DIRECTIONS[rover.direction].name}方`);
       if (landmarks.length === 0) landmarks.push('可通行');
       if (wasVisited) landmarks.push('這次走過');
@@ -228,8 +257,8 @@
       tile.classList.toggle('collected', collected.has(seed));
     });
     world.querySelector('.echo')?.classList.toggle('found', echoFound);
-    world.querySelector('.switch-tile')?.classList.toggle('active', switchActive);
-    world.querySelector('.barrier')?.classList.toggle('open', switchActive);
+    world.querySelectorAll('.switch-tile').forEach((tile) => tile.classList.toggle('active', activeSwitches.has(tile.dataset.mechanism)));
+    world.querySelectorAll('.barrier').forEach((tile) => tile.classList.toggle('open', activeSwitches.has(tile.dataset.mechanism)));
     echoLog.hidden = !echoFound;
     echoLog.textContent = echoFound ? `◇ 這次發現的星球回聲：${level().echo.story}` : '';
     const gateTile = world.querySelector(`[data-x="${level().gate.x}"][data-y="${level().gate.y}"]`);
@@ -315,7 +344,7 @@
   }
 
   function closedBarrierAt(x, y) {
-    return !switchActive && level().barrier?.x === x && level().barrier?.y === y;
+    return (level().mechanisms ?? []).find((item) => item.barrier.x === x && item.barrier.y === y && !activeSwitches.has(item.id));
   }
 
   function moveForward() {
@@ -329,8 +358,9 @@
     if (level().walls.has(`${x},${y}`)) {
       return { ok: false, message: '岩壁擋住了去路。改變方向，或看看地圖上的空隙。' };
     }
-    if (closedBarrierAt(x, y)) {
-      return { ok: false, message: '光閘擋住了去路。先走上能量開關，讓光閘打開。' };
+    const blockedBy = closedBarrierAt(x, y);
+    if (blockedBy) {
+      return { ok: false, message: `光閘擋住了去路。先走上能量開關 ${blockedBy.id}，讓光閘打開。` };
     }
     const previousPosition = { x: rover.x, y: rover.y };
     rover.x = x;
@@ -342,15 +372,15 @@
       knownEchoes.add(levelIndex);
       saveEchoes();
     }
-    const activatedSwitch = !switchActive && rover.x === level().switchTile?.x && rover.y === level().switchTile?.y;
-    if (activatedSwitch) switchActive = true;
+    const activatedSwitch = (level().mechanisms ?? []).find((item) => rover.x === item.switchTile.x && rover.y === item.switchTile.y && !activeSwitches.has(item.id));
+    if (activatedSwitch) activeSwitches.add(activatedSwitch.id);
     drawWorld(previousPosition);
     const movement = discoveredEcho
       ? `小芽抵達 X ${rover.x + 1}、Y ${rover.y + 1}，發現星球回聲。`
       : `小芽前進一步，到達 X ${rover.x + 1}、Y ${rover.y + 1}，面向${DIRECTIONS[rover.direction].name}方。`;
-    setStatus(`${movement}${activatedSwitch ? ' 踩上能量開關，光閘打開了！' : ''}`);
+    setStatus(`${movement}${activatedSwitch ? ` 踩上能量開關 ${activatedSwitch.id}，光閘打開了！` : ''}`);
     if (discoveredEcho) showToast('發現星球回聲 ◇');
-    if (activatedSwitch) showToast('光閘已打開 ◉');
+    if (activatedSwitch) showToast(`光閘 ${activatedSwitch.id} 已打開 ◉`);
     return { ok: true };
   }
 
@@ -423,7 +453,7 @@
     const vector = DIRECTIONS[rover.direction];
     const x = rover.x + vector.x;
     const y = rover.y + vector.y;
-    return !tileAt(x, y) || level().walls.has(`${x},${y}`) || closedBarrierAt(x, y);
+    return !tileAt(x, y) || level().walls.has(`${x},${y}`) || Boolean(closedBarrierAt(x, y));
   }
 
   function updateMissionNavigation() {
@@ -492,7 +522,7 @@
     visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
-    switchActive = false;
+    activeSwitches = new Set();
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -632,7 +662,7 @@
     visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
-    switchActive = false;
+    activeSwitches = new Set();
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
@@ -700,6 +730,7 @@
     missionTitle.innerHTML = level().title;
     missionLead.textContent = level().lead;
     worldTitle.textContent = level().area;
+    sectorLabel.textContent = `SECTOR ${ordinal}-A`;
     hintCopy.innerHTML = level().hint;
     code.value = missionDrafts[levelIndex];
     repeatCommand.hidden = levelIndex < 1;
@@ -721,7 +752,7 @@
     visited = new Set([`${rover.x},${rover.y}`]);
     collected = new Set();
     echoFound = false;
-    switchActive = false;
+    activeSwitches = new Set();
     gateOpen = false;
     hasActionError = false;
     winCard.hidden = true;
