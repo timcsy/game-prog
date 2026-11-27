@@ -11,6 +11,10 @@ const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/game.js', ['game.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
+  ['/assets/landing.svg', ['assets/landing.svg', 'image/svg+xml']],
+  ['/assets/valley.svg', ['assets/valley.svg', 'image/svg+xml']],
+  ['/assets/signal.svg', ['assets/signal.svg', 'image/svg+xml']],
+  ['/assets/ruins.svg', ['assets/ruins.svg', 'image/svg+xml']],
 ]);
 let server, browser, url;
 
@@ -213,6 +217,24 @@ test('the whole map fits its scene at desktop and phone sizes', async () => {
           document.documentElement.scrollWidth <= innerWidth;
       });
       assert.equal(fits, true, `map should fit at ${width}×${height}`);
+    }
+  } finally { await context.close(); }
+});
+
+test('each unlocked area shows its own available scene art', async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(url);
+    await page.evaluate(() => localStorage.setItem('light-seed-game-unlocked-mission', '3'));
+    await page.reload();
+    for (const scene of ['ruins', 'signal', 'valley', 'landing']) {
+      assert.equal(await page.locator('.world-panel').getAttribute('data-scene'), scene);
+      const artUrl = await page.locator('.scene-art').evaluate((element) => {
+        return getComputedStyle(element).backgroundImage.slice(5, -2);
+      });
+      assert.equal((await page.request.get(artUrl)).status(), 200);
+      if (scene !== 'landing') await page.locator('#previous-mission').click();
     }
   } finally { await context.close(); }
 });

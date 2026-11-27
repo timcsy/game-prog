@@ -4,6 +4,7 @@
   const LEVELS = [
     {
       name: '初次接觸',
+      scene: 'landing',
       title: '星球失去光了。<br /><em>交給你和小芽。</em>',
       lead: '導航門的光種散落在地表。寫下行動指令，帶領探測機小芽找回它們，重新點亮返航路線。',
       area: '沉睡星球 · 著陸區',
@@ -18,6 +19,7 @@
     },
     {
       name: '重複的路徑',
+      scene: 'valley',
       title: '又是這段路。<br /><em>能不能少寫幾次？</em>',
       lead: '第二條訊號線沿著筆直山谷延伸。把同一個行動重複幾次，讓小芽少走幾行程式，找回沿路的光種。',
       area: '沉睡星球 · 回音山谷',
@@ -32,6 +34,7 @@
     },
     {
       name: '感應與選擇',
+      scene: 'signal',
       title: '不必每次都照做。<br /><em>先看看發生什麼事。</em>',
       lead: '小芽裝上光種和岩壁感測器。用 if 檢查眼前的狀況，只有條件成立時才執行行動。',
       area: '沉睡星球 · 訊號岔路',
@@ -46,6 +49,7 @@
     },
     {
       name: '喚醒光閘',
+      scene: 'ruins',
       title: '路被封住了。<br /><em>讓星球替你開路。</em>',
       lead: '踩上 ◉ 開關，打開紫色光閘，再找光種與導航門。',
       area: '沉睡星球 · 星光遺跡',
@@ -666,6 +670,7 @@
 
   function showMissionDetails() {
     const ordinal = String(levelIndex + 1).padStart(2, '0');
+    world.closest('.world-panel').dataset.scene = level().scene;
     topNote.innerHTML = `<i></i> 任務 ${ordinal} · ${level().name}`;
     fieldLog.textContent = `SILENT PLANET / FIELD LOG ${ordinal}`;
     missionTitle.innerHTML = level().title;
